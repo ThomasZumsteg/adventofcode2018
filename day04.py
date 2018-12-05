@@ -72,6 +72,7 @@ def part2(guard_log):
     guard, _ = max(time_counter.items(), key=lambda kv: kv[1])
     return guard[0] * guard[2]
 
+
 def parse(line):
     # format 
     # [1518-11-01 00:00] Guard #10 begins shift
