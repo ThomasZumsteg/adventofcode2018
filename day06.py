@@ -2,8 +2,6 @@
 """Solutions to day 6 of Advent of Code"""
 
 import re
-import itertools
-import enum
 from collections import namedtuple
 
 from get_input import get_input, line_parser
@@ -20,7 +18,6 @@ def distance(r, p):
 
 def part1(records):
     """Solution to part 1"""
-    done = set()
     seen = set()
     areas = {r: State() for r in records}
     max_d = max([distance(r, p) for r in records for p in records])
@@ -69,7 +66,11 @@ def part2(records, limit=10000):
         if dist >= limit:
             continue
         area.add(p)
-        queue.extend([Record(p.x+1,p.y),Record(p.x-1,p.y),Record(p.x,p.y+1),Record(p.x,p.y-1)])
+        queue.extend([
+            Record(p.x+1, p.y),
+            Record(p.x-1, p.y),
+            Record(p.x, p.y+1),
+            Record(p.x, p.y-1)])
     return len(area)
 
 
