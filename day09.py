@@ -1,5 +1,5 @@
 #!/usr/bin/env pipenv run python
-"""Solutions to day 8 of Advent of Code"""
+"""Solutions to day 9 of Advent of Code"""
 
 import re
 import itertools
@@ -7,44 +7,50 @@ import collections
 
 from get_input import get_input, line_parser
 
-class MarbleCircle:
-    def __init__(self):
-        self._index = 0
-        self._marbles = [0]
+class Marble:
+    __slots__ = ['value', 'head', 'tail']
 
-    @property
-    def index(self):
-        self._index %= len(self._marbles)
-        return self._index + 1
+    def __init__(self, value, tail=None, head=None):
+        self.value = value
+        self.tail = tail or self
+        self.head = head or self
 
-    def play(self, marble):
-        if marble % 23 == 0:
-            self._index -= 7
-            return self._marbles.pop(self.index % len(self._marbles)) + marble
-        self._index += 2
-        self._marbles.insert(self.index, marble)
-        return 0
+    def insert(self, marble):
+        other = Marble(marble, tail=self, head=self.head)
+        self.head, other.head.tail = other, other
+        return other
 
-    def __str__(self):
-        return ''.join(f"{m:2} " if i != self.index else f"{m:2})" for i, m in enumerate(self._marbles))
+    def remove(self):
+        self.head.tail, self.tail.head = self.tail, self.head
+        return self.value, self.head
+
+    def move(self, n=1):
+        result = self
+        for _ in range(abs(n)):
+            result = result.head if n >= 0 else result.tail
+        return result
+
+    def __repr__(self):
+        return f"Marble({self.value}, tail=Marble({self.tail.value}), "\
+               f"head=Marble({self.head.value}))"
 
 def part1(game):
     """Solution to part 1"""
-    game = game[0]
-    circle = MarbleCircle()
-    scores = {e: 0 for e in range(1, game.players+1)}
-    for elf, marble in zip(itertools.cycle(range(1, game.players+1)), range(1, game.marbles+1)):
-        scores[elf] += circle.play(marble)
+    root = Marble(0)
+    scores = {e: 0 for e in range(1, game[0].players+1)}
+    for elf, marble in zip(itertools.cycle(
+            range(1, game[0].players+1)),
+            range(1, game[0].marbles+1)):
+        if marble % 23 == 0:
+            val, root =  root.move(-7).remove()
+            scores[elf] += marble + val
+        else:
+            root = root.move().insert(marble)
     return max(scores.values())
 
 def part2(game):
     """Solution to part 2"""
-    game = Record(game[0].players, game[0].marbles * 100)
-    circle = MarbleCircle()
-    scores = {e: 0 for e in range(1, game.players+1)}
-    for elf, marble in zip(itertools.cycle(range(1, game.players+1)), range(1, game.marbles+1)):
-        scores[elf] += circle.play(marble)
-    return max(scores.values())
+    return part1([Record(game[0].players, game[0].marbles * 100)])
 
 Record = collections.namedtuple('Record', 'players, marbles')
 
@@ -61,4 +67,4 @@ if __name__ == '__main__':
     assert part1([Record(30, 5807)]) == 37305
     LINES = line_parser(get_input(day=9, year=2018), parse=parse)
     print("Part 1: {}".format(part1(LINES)))
-    # print("Part 2: {}".format(part2(LINES)))
+    print("Part 2: {}".format(part2(LINES)))
