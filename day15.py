@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from get_input import get_input, line_parser
 
 class Point:
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -17,9 +18,6 @@ class Point:
         if not isinstance(other, type(self)):
             return NotImplemented
         return Point(self.x + other.x, self.y + other.y)
-
-    def is_valid(self, point):
-        return 0 <= j < len(board) and 0 <= i < len(board[j])
 
     def __repr__(self):
         return f"Point(x={self.x}, y={self.y})"
@@ -32,173 +30,178 @@ class Point:
             return NotImplemented
         return self.x == other.x and self.y == other.y
 
-class Unit:
-    def __init__(self, x, y):
-        self.hp = 200
-        self.ap = 3
+class BoardItem:
+    def __init__(self, pos, board):
+        self.pos = pos
+        self.board = board
+
+    def __str__(self):
+        return self.__class__.char
+
+class Wall(BoardItem):
+    char = '#'
+
+class Space(BoardItem):
+    char = '.'
+
+class Unit(BoardItem):
+    def __init__(self, board, pos):
+        super().__init__(board, pos)
+        self.hp = type(self).hp
+
+    @property
+    def dead(self):
+        return self.hp <= 0
 
     def is_enemy(self, other):
         return isinstance(other, Unit) and not isinstance(other, type(self))
 
+    @classmethod
+    def make_unit_class(cls, char, attack=3, hp=200):
+        unit_type = "Elf" if char == "E" else "Goblin"
+        class Cls(cls):
+            def __repr__(self):
+                return f"{unit_type}({repr(self.pos)}, attack={self.ap}, hp={self.hp})"
+        Cls.char = char
+        Cls.ap = attack
+        Cls.hp = hp
+        return Cls 
+    
+    def attack(self):
+        defenders = []
+        for diff in self.board.READ_ORDER:
+            defender = self.board[self.pos + diff]
+            if self.is_enemy(defender):
+                defenders.append(defender)
+        if not defenders:
+            return
+        defenders.sort(key=lambda d: d.hp)
+        defender = defenders[0]
+        defender.hp -= self.ap
+        if defender.dead:
+            self.board.remove(defender)
+            return defender
+
 class Board(list):
-    def get_point(self, pos: Point):
-        return self[pos.y][pos.x]
+    READ_ORDER = (Point(0, -1), Point(-1, 0), Point(1, 0), Point(0, 1))
 
-    def swap(self, pos1: Point, pos2: Point):
-        self[pos2.y][pos2.x], self[pos1.y][pos1.x] =\
-                self[pos1.y][pos1.x], self[pos2.y][pos2.x]
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.round = 0
+        self._unit_order = list(self.units)
 
-def make_unit_class(char, attack=3, hp=200):
-    class Cls(Unit):
-        def __init__(self, x, y):
-            super().__init__(x, y)
-            self.ap = attack
-            self.hp = hp 
+    @classmethod
+    def make_board(cls, lines, mapping):
+        board = cls()
+        for y, line in enumerate(lines.splitlines()):
+            board.append([])
+            for x, char in enumerate(list(line)):
+                board[-1].append(mapping[char](Point(x, y), board))
+        return board
 
-        def __str__(self):
-            return char
+    def __getitem__(self, pos):
+        if isinstance(pos, Point):
+            return super().__getitem__(pos.y).__getitem__(pos.x)
+        return super().__getitem__(pos)
 
-        def __repr__(self):
-            return f"{type(self).__name__}"
+    def __setitem__(self, pos, obj):
+        if isinstance(pos, Point):
+            obj.pos = pos
+            return super().__getitem__(pos.y).__setitem__(pos.x, obj)
+        return super().__setitem__(pos, obj)
 
-    Cls.__name__ = 'Elf' if char == 'E' else 'Goblin'
-    return Cls 
+    def move(self, unit, pos):
+        self[unit.pos] = self[pos]
+        self[pos] = unit
 
-class Wall:
-    def __str__(self):
-        return '#'
+    def remove(self, unit):
+        self[unit.pos] = Space(self, unit.pos)
 
-class Space:
-    def __str__(self):
-        return '.'
+    @property
+    def units(self):
+        return tuple(u for row in self for u in row if isinstance(u, Unit))
 
-def move(pos: Point, board: Board):
-    unit = board.get_point(pos)
-    if not isinstance(unit, Unit):
-        # Can only move units
-        raise ValueError(f"unit at {pos} is not a unit")
-    queue = [(pos, None)]
-    seen = set()
-    while queue:
-        point, first = queue.pop(0)
-        if point in seen:
-            continue
-        seen.add(point)
-        for diff in READ_ORDER:
-            new = point + diff
-            try:
-                space = board.get_point(new)
-            except IndexError:
+    def find_path(self, pos: Point, func):
+        queue = [(pos, )]
+        seen = set()
+        while queue:
+            path = queue.pop(0)
+            point = path[-1]
+            if point in seen:
                 continue
-            if isinstance(space, Space):
-                queue.append((new, first or new))
-            elif unit.is_enemy(space):
-                return first or pos
-    # Return the current position of there are no valid moves
-    return pos
+            seen.add(point)
+            for diff in type(self).READ_ORDER:
+                new = point + diff
+                try:
+                    square = self[new]
+                except IndexError:
+                    continue
+                if isinstance(square, Space):
+                    queue.append(path + (new,))
+                elif func(square):
+                    return path
+        return tuple()
 
-READ_ORDER = (Point(0, -1), Point(-1, 0), Point(1, 0), Point(0, 1))
+    def __repr__(self):
+        representation = [f"Round {self.round}"]
+        representation.extend(''.join(str(u) for u in row) for row in self)
+        representation.extend(repr(u) for u in self.units)
+        return '\n'.join(representation)
 
-def get_unit_order(board): 
-    order = []
-    for y, row in enumerate(board):
-        for x, unit in enumerate(row):
-            if isinstance(unit, Unit):
-                order.append((Point(x, y), unit))
-    return iter(order)
+    def play(self):
+        while True:
+            for attacker in self.units:
+                yield
+                if attacker.dead:
+                    continue
+                path = self.find_path(attacker.pos, attacker.is_enemy)
+                if len(path) > 1:
+                    self.move(attacker, path[1])
+                attacker.attack()
+            self.round += 1
 
-
-def select_target(board, pos):
-    attacker = board.get_point(pos)
-    if not isinstance(attacker, Unit):
-        raise ValueError(f"unit at {pos} is not a unit")
-    t_pos, target = None, None
-    for diff in READ_ORDER:
-        unit = board.get_point(pos + diff)
-        if attacker.is_enemy(unit) and (target is None or target.hp > unit.hp):
-            target, t_pos = unit, pos + diff
-    return target, t_pos
-
-def fight(board):
-    rounds = 0
-    while True:
-        for pos, attacker in get_unit_order(board):
-            if attacker.hp <= 0:
-                continue
-
-            remaining = set(type(u) for _, u in get_unit_order(board) if u.hp > 0)
-            if len(remaining) <= 1:
-                # print(f"\nAfter {rounds}")
-                # for pos, attacker in get_unit_order(board):
-                #     print(f"{repr(attacker)} @ {pos} has {attacker.hp}")
-                # print('\n'.join(''.join(str(u) for u in row) for row in board))
-                return list(remaining)[0],\
-                    rounds * sum(u.hp for _, u in get_unit_order(board))
-
-            new_pos = move(pos, board)
-            board.swap(pos, new_pos)
-
-            target, t_pos = select_target(board, new_pos)
-            if target is not None:
-                target.hp -= attacker.ap
-                if target.hp <= 0:
-                    board[t_pos.y][t_pos.x] = Space()
-        rounds += 1
-
-def part1(lines):
+def part1(lines, elf_ap=3):
     """Solution to part 1"""
-    elf_class = make_unit_class('E', 3, 200)
-    goblin_class = make_unit_class('G', 3, 200)
-    board = make_board(lines, elf=elf_class, goblin=goblin_class)
-    _, score = fight(board)
-    return score
+    elf_class = Unit.make_unit_class('E', elf_ap, 200)
+    goblin_class = Unit.make_unit_class('G', 3, 200)
+    board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
+    for _ in board.play():
+        if len(set(type(u) for u in board.units)) <= 1:
+            break
+    # print(board)
+    # print(sum(u.hp for u in board.units) * board.round)
+    return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
     """Solution to part 2"""
     start, end, expanding = 4, 8, True
-    goblin_class = make_unit_class('G', 3, 200)
-    best_elf_score, elf_ap = None, None
-    while start <= end:
-        half = (end + start) // 2 if not expanding else end
-        elf_class = make_unit_class('E', half, 200)
-        board = make_board(lines, elf=elf_class, goblin=goblin_class)
-        before_elf_count = sum(1 for row in board for elf in row if isinstance(elf, elf_class))
-        winner, score = fight(board)
-        # print(f"End with ap = {half}")
-        after_elf_count = sum(1 for row in board for elf in row if isinstance(elf, elf_class))
-        if expanding and (winner == goblin_class or after_elf_count < before_elf_count):
-            start, end = end + 1, end * 2
-        elif expanding and (winner == elf_class and after_elf_count == before_elf_count):
-            # print(f"Elves ap {half} with a score {score}")
-            end = half - 1
-            expanding = False
-            best_elf_score, elf_ap = score, half
-        elif not expanding and (winner == elf_class and after_elf_count == before_elf_count):
-            # print(f"Elves ap {half} with a score {score}")
-            end = half - 1
-            if half < elf_ap:
-                best_elf_score, elf_ap = score, half
-        elif not expanding and (winner == goblin_class or after_elf_count < before_elf_count):
-            start = half + 1
-    # print(f"Best is ap {elf_ap} with a score {best_elf_score}")
-    return best_elf_score
+    goblin_class = Unit.make_unit_class('G', 3, 200)
+    best_ap = None
+    while start < end:
+        elf_class = Unit.make_unit_class('E', (start + end) // 2 if not expanding else end)
+        # print(f"Testing {start} -> {end}, {elf_class.ap}")
+        board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
+        def count_elves():
+            return sum(1 for u in board.units if isinstance(u, elf_class))
+        n_elves = count_elves()
+        for _ in board.play():
+            if count_elves() < n_elves:
+                if expanding:
+                    start, end = end + 1, 2 * end
+                else:
+                    start = elf_class.ap + 1
+                break
+            if set(type(u) for u in board.units) == {elf_class}:
+                # Elves win
+                expanding = False
+                end = elf_class.ap
+                if best_ap is None or elf_class.ap < best_ap:
+                    best_score = sum(u.hp for u in board.units) * board.round
+                    best_ap = elf_class.ap
+                break
+    return best_score
 
-def make_board(lines, elf=Unit, goblin=Unit):
-    board = Board()
-    for x, line in enumerate(lines.splitlines()):
-        board.append([])
-        for y, char in enumerate(list(line)):
-            if char == '#':
-                board[-1].append(Wall())
-            elif char == '.':
-                board[-1].append(Space())
-            elif char == 'G':
-                board[-1].append(goblin(x, y))
-            elif char == 'E':
-                board[-1].append(elf(x, y))
-    return board
-
-sample_boards = [("""#######   
+sample_boards = [("""#######
 #.G...#
 #...EG#
 #.#.#G#
@@ -218,14 +221,14 @@ sample_boards = [("""#######
 #G.#.G#
 #G..#.#
 #...E.#
-#######(""", 27755, 3478),
+#######""", 27755, 3478),
 ("""#######
 #.E...#
 #.#..G#
 #.###.#
 #E#G#G#
 #...#G#
-#######(""", 28944, 6474),
+#######""", 28944, 6474),
 ("""#########
 #G......#
 #.E.#...#
@@ -244,4 +247,4 @@ if __name__ == '__main__':
     board = get_input(day=15, year=2018)
     print("Part 1: {}".format(part1(board)))
     print("Part 2: {}".format(part2(board)))
-    # Not 47678
+    # Not 47678 46140
