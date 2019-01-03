@@ -1,5 +1,3 @@
-#!/usr/bin/env pipenv run python
-"""Solutions to day 15 of Advent of Code"""
 
 import re
 import itertools
@@ -9,7 +7,6 @@ from dataclasses import dataclass
 from get_input import get_input, line_parser
 
 class Point:
-
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -82,47 +79,40 @@ class Unit(BoardItem):
             self.board.remove(defender)
             return defender
 
-class Board(list):
+class Board:
     READ_ORDER = (Point(0, -1), Point(-1, 0), Point(1, 0), Point(0, 1))
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.round = 0
-        self._unit_order = list(self.units)
+    def __init__(self, rows, round=0, unit_order=None):
+        self._rows = tuple(tuple(row) for row in rows)
+        self.round = round
+        if unit_order is None:
+            unit_order = self.units
+            self.round += 1
+        self.attacker, *self.unit_order = unit_order
 
     @classmethod
     def make_board(cls, lines, mapping):
-        board = cls()
+        rows = []
         for y, line in enumerate(lines.splitlines()):
-            board.append([])
+            rows.append([])
             for x, char in enumerate(list(line)):
-                board[-1].append(mapping[char](Point(x, y), board))
-        return board
+                rows[-1].append(mapping[char](Point(x, y), board))
+        return cls(rows) 
 
     def __getitem__(self, pos):
         if isinstance(pos, Point):
-            return super().__getitem__(pos.y).__getitem__(pos.x)
-        return super().__getitem__(pos)
+            return self._rows[pos.y][pos.x]
+        return NotImplemented
 
-    def __setitem__(self, pos, obj):
-        if isinstance(pos, Point):
-            obj.pos = pos
-            return super().__getitem__(pos.y).__setitem__(pos.x, obj)
-        return super().__setitem__(pos, obj)
-
-    def move(self, unit, pos):
-        self[unit.pos] = self[pos]
-        self[pos] = unit
-
-    def remove(self, unit):
-        self[unit.pos] = Space(self, unit.pos)
+    def __iter__(self):
+        return iter(self._rows)
 
     @property
     def units(self):
         return tuple(u for row in self for u in row if isinstance(u, Unit))
 
-    def find_path(self, pos: Point, func):
-        queue = [(pos, )]
+    def find_path(self, attacker):
+        queue = [(attacker.pos, )]
         seen = set()
         while queue:
             path = queue.pop(0)
@@ -138,7 +128,7 @@ class Board(list):
                     continue
                 if isinstance(square, Space):
                     queue.append(path + (new,))
-                elif func(square):
+                elif attacker.is_enemy(square):
                     return path
         return tuple()
 
@@ -149,27 +139,18 @@ class Board(list):
         return '\n'.join(representation)
 
     def play(self):
-        while True:
-            for attacker in self.units:
-                yield
-                if attacker.dead:
-                    continue
-                path = self.find_path(attacker.pos, attacker.is_enemy)
-                if len(path) > 1:
-                    self.move(attacker, path[1])
-                attacker.attack()
-            self.round += 1
+        path = self.find_path(self.attacker)
+        raise Exception ("Not a thing")
 
 def part1(lines, elf_ap=3):
     """Solution to part 1"""
     elf_class = Unit.make_unit_class('E', elf_ap, 200)
     goblin_class = Unit.make_unit_class('G', 3, 200)
     board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
-    for _ in board.play():
+    while True:
+        board = board.play()
         if len(set(type(u) for u in board.units)) <= 1:
             break
-    # print(board)
-    # print(sum(u.hp for u in board.units) * board.round)
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
@@ -196,7 +177,8 @@ def part2(lines):
                 expanding = False
                 end = elf_class.ap
                 if best_ap is None or elf_class.ap < best_ap:
-                    best_score = sum(u.hp for u in board.units) * board.round
+                    print(f"{elf_class.ap}: {board.round}")
+                    best_score = sum(u.hp for u in board.units if not u.dead) * board.round
                     best_ap = elf_class.ap
                 break
     return best_score
@@ -248,3 +230,4 @@ if __name__ == '__main__':
     print("Part 1: {}".format(part1(board)))
     print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
+    # Is 46784
