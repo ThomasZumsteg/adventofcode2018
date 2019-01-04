@@ -44,17 +44,23 @@ class Space(BoardItem):
 class Unit(BoardItem):
     def __init__(self, board, pos):
         super().__init__(board, pos)
-        self.hp = type(self).hp
+        self._hp = type(self).hp
 
     @property
-    def dead(self):
-        return self.hp <= 0
+    def hp(self):
+        return self._hp
+
+    @hp.setter
+    def hp(self, other):
+        self._hp = other
+        if self._hp < 0 and self.on_death:
+            raise self.on_death(repr(self))
 
     def is_enemy(self, other):
         return isinstance(other, Unit) and not isinstance(other, type(self))
 
     @classmethod
-    def make_unit_class(cls, char, attack=3, hp=200):
+    def make_unit_class(cls, char, attack=3, hp=200, on_death=None):
         unit_type = "Elf" if char == "E" else "Goblin"
         class Cls(cls):
             def __repr__(self):
@@ -62,6 +68,7 @@ class Unit(BoardItem):
         Cls.char = char
         Cls.ap = attack
         Cls.hp = hp
+        Cls.on_death = on_death
         return Cls 
     
     def attack(self):
@@ -85,7 +92,7 @@ class Board:
     def __init__(self, rows, round=0, unit_order=None):
         self._rows = tuple(tuple(row) for row in rows)
         self.round = round
-        if unit_order is None:
+        if not unit_order:
             unit_order = self.units
             self.round += 1
         self.attacker, *self.unit_order = unit_order
@@ -129,7 +136,7 @@ class Board:
                 if isinstance(square, Space):
                     queue.append(path + (new,))
                 elif attacker.is_enemy(square):
-                    return path
+                    return path + (new,)
         return tuple()
 
     def __repr__(self):
@@ -140,47 +147,54 @@ class Board:
 
     def play(self):
         path = self.find_path(self.attacker)
-        raise Exception ("Not a thing")
+        rows = [list(row) for row in self]
+        if len(path) > 2:
+            p1, p2 = path[0], path[1]
+            rows[p2.y][p2.x], rows[p1.y][p1.x] = self[p1], self[p2]
+            path = path[1:]
+        if len(path) == 2:
+            p1, p2, *_ = path
+            rows[p2.y][p2.x].hp -= rows[p1.y][p1.x].ap
+        board = type(self)(rows, round=self.round, unit_order=self.unit_order)
+        import pdb; pdb.set_trace()
+        return board
 
-def part1(lines, elf_ap=3):
+
+def part1(lines):
     """Solution to part 1"""
-    elf_class = Unit.make_unit_class('E', elf_ap, 200)
-    goblin_class = Unit.make_unit_class('G', 3, 200)
-    board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
-    while True:
+    board = Board.make_board(lines, {
+        'E': Unit.make_unit_class('E'),
+        'G': Unit.make_unit_class('G'),
+        '#': Wall,
+        '.': Space})
+    while len(set(type(u) for u in board.units)) > 1:
         board = board.play()
-        if len(set(type(u) for u in board.units)) <= 1:
-            break
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
     """Solution to part 2"""
-    start, end, expanding = 4, 8, True
-    goblin_class = Unit.make_unit_class('G', 3, 200)
-    best_ap = None
+    start, end, expanding, best_ap = 4, 8, True, None
+    goblin_class = Unit.make_unit_class('G')
     while start < end:
-        elf_class = Unit.make_unit_class('E', (start + end) // 2 if not expanding else end)
+        elf_ap = (start + end) // 2 if not expanding else end
+        elf_class = Unit.make_unit_class('E', elf_ap, 300, DeadElf)
         # print(f"Testing {start} -> {end}, {elf_class.ap}")
         board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
-        def count_elves():
-            return sum(1 for u in board.units if isinstance(u, elf_class))
-        n_elves = count_elves()
-        for _ in board.play():
-            if count_elves() < n_elves:
-                if expanding:
-                    start, end = end + 1, 2 * end
-                else:
-                    start = elf_class.ap + 1
-                break
-            if set(type(u) for u in board.units) == {elf_class}:
-                # Elves win
+        try:
+            while len(set(type(u) for u in board.units)) > 1:
+                board = board.play()
+        except DeadElf:
+            if expanding:
+                start, end = end + 1, end * 2
+            else:
+                start = elf_ap + 1
                 expanding = False
-                end = elf_class.ap
-                if best_ap is None or elf_class.ap < best_ap:
-                    print(f"{elf_class.ap}: {board.round}")
-                    best_score = sum(u.hp for u in board.units if not u.dead) * board.round
-                    best_ap = elf_class.ap
-                break
+        else:
+            if expanding:
+                end = end - 1
+                expanding = False
+            else:
+                end = elf_ap - 1
     return best_score
 
 sample_boards = [("""#######
