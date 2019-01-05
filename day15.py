@@ -28,12 +28,15 @@ class Point:
         return self.x == other.x and self.y == other.y
 
 class BoardItem:
-    def __init__(self, pos, board):
+    def __init__(self, board=None, pos=None):
+        self.board = board 
         self.pos = pos
-        self.board = board
 
     def __str__(self):
         return self.__class__.char
+
+    def clone(self, board):
+        return type(self)(board, self.pos)
 
 class Wall(BoardItem):
     char = '#'
@@ -42,9 +45,10 @@ class Space(BoardItem):
     char = '.'
 
 class Unit(BoardItem):
-    def __init__(self, board, pos):
-        super().__init__(board, pos)
-        self._hp = type(self).hp
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._hp = type(self).cls_hp
+        self.ap = type(self).cls_ap
 
     @property
     def hp(self):
@@ -53,8 +57,10 @@ class Unit(BoardItem):
     @hp.setter
     def hp(self, other):
         self._hp = other
-        if self._hp < 0 and self.on_death:
-            raise self.on_death(repr(self))
+        if self._hp < 0:
+            self.board[self.pos] = Space()
+            if self.on_death:
+                raise self.on_death(repr(self))
 
     def is_enemy(self, other):
         return isinstance(other, Unit) and not isinstance(other, type(self))
@@ -66,50 +72,49 @@ class Unit(BoardItem):
             def __repr__(self):
                 return f"{unit_type}({repr(self.pos)}, attack={self.ap}, hp={self.hp})"
         Cls.char = char
-        Cls.ap = attack
-        Cls.hp = hp
+        Cls.cls_ap = attack
+        Cls.cls_hp = hp
         Cls.on_death = on_death
         return Cls 
     
-    def attack(self):
-        defenders = []
-        for diff in self.board.READ_ORDER:
-            defender = self.board[self.pos + diff]
-            if self.is_enemy(defender):
-                defenders.append(defender)
-        if not defenders:
-            return
-        defenders.sort(key=lambda d: d.hp)
-        defender = defenders[0]
-        defender.hp -= self.ap
-        if defender.dead:
-            self.board.remove(defender)
-            return defender
+    def clone(self, board):
+        clone = super().clone(board)
+        clone.hp = self.hp
+        clone.ap = self.ap
+        return clone
+
 
 class Board:
     READ_ORDER = (Point(0, -1), Point(-1, 0), Point(1, 0), Point(0, 1))
 
-    def __init__(self, rows, round=0, unit_order=None):
-        self._rows = tuple(tuple(row) for row in rows)
+    def __init__(self, round=0, unit_order=None):
+        self._rows = []
         self.round = round
-        if not unit_order:
-            unit_order = self.units
-            self.round += 1
-        self.attacker, *self.unit_order = unit_order
+        self._unit_order = unit_order
 
     @classmethod
     def make_board(cls, lines, mapping):
-        rows = []
+        board = cls()
         for y, line in enumerate(lines.splitlines()):
-            rows.append([])
             for x, char in enumerate(list(line)):
-                rows[-1].append(mapping[char](Point(x, y), board))
-        return cls(rows) 
+                board[Point(x, y)] = mapping[char]()
+        return board
 
     def __getitem__(self, pos):
         if isinstance(pos, Point):
             return self._rows[pos.y][pos.x]
         return NotImplemented
+
+    def __setitem__(self, point, value):
+        if not isinstance(point, Point):
+            return NotImplemented
+        while point.y >= len(self._rows):
+            self._rows.append([])
+        while point.x >= len(self._rows[point.y]):
+            self._rows[point.y].append(None)
+        self._rows[point.y][point.x] = value
+        value.board = self
+        value.pos = point
 
     def __iter__(self):
         return iter(self._rows)
@@ -146,19 +151,38 @@ class Board:
         return '\n'.join(representation)
 
     def play(self):
-        path = self.find_path(self.attacker)
-        rows = [list(row) for row in self]
+        board = self.clone()
+        while board.attacker.hp <= 0:
+            board = board.clone()
+        path = board.find_path(board.attacker)
         if len(path) > 2:
             p1, p2 = path[0], path[1]
-            rows[p2.y][p2.x], rows[p1.y][p1.x] = self[p1], self[p2]
+            o1, o2 = board[p1], board[p2]
+            board[p2], board[p1] = o1, o2
             path = path[1:]
         if len(path) == 2:
-            p1, p2, *_ = path
-            rows[p2.y][p2.x].hp -= rows[p1.y][p1.x].ap
-        board = type(self)(rows, round=self.round, unit_order=self.unit_order)
-        import pdb; pdb.set_trace()
+            p1, p2 = path
+            board[p2].hp -= board[p1].ap
         return board
 
+    def clone(self):
+        clone = Board(round=self.round, unit_order=self.unit_order)
+        clone._rows = [[item.clone(clone) for item in row] for row in self._rows]
+        return clone
+    
+    @property
+    def attacker(self):
+        if not self._unit_order:
+            self.round += 1
+            self._unit_order = self.units
+        return self._unit_order[0]
+
+    @property
+    def unit_order(self):
+        if not self._unit_order:
+            self.round += 1
+            self._unit_order = self.units
+        return self._unit_order[1:]
 
 def part1(lines):
     """Solution to part 1"""
@@ -169,6 +193,7 @@ def part1(lines):
         '.': Space})
     while len(set(type(u) for u in board.units)) > 1:
         board = board.play()
+        print(board)
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
