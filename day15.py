@@ -53,7 +53,7 @@ class Unit(BoardItem):
     @hp.setter
     def hp(self, other):
         self._hp = other
-        if self._hp < 0:
+        if self._hp <= 0:
             self.board[self.pos] = Space()
             if self.on_death:
                 raise self.on_death(repr(self))
@@ -80,7 +80,6 @@ class Board:
     def __init__(self):
         self._rows = []
         self.round = 0
-        self.unit_order = None
 
     @classmethod
     def make_board(cls, lines, mapping):
@@ -88,6 +87,8 @@ class Board:
         for y, line in enumerate(lines.splitlines()):
             for x, char in enumerate(list(line)):
                 board[Point(x, y)] = mapping[char]()
+        board.unit_order = board.units
+        board.attacker = board.unit_order.pop(0)
         return board
 
     def __getitem__(self, pos):
@@ -113,7 +114,7 @@ class Board:
 
     @property
     def units(self):
-        return tuple(u for row in self for u in row if isinstance(u, Unit))
+        return [u for row in self for u in row if isinstance(u, Unit)]
 
     def find_path(self, attacker):
         queue = [(attacker.pos, )]
@@ -133,7 +134,12 @@ class Board:
                 if isinstance(square, Space):
                     queue.append(path + (new,))
                 elif attacker.is_enemy(square):
-                    return path + (new,)
+                    defender = square
+                    for diff in self.READ_ORDER:
+                        space = self[path[-1]+diff]
+                        if attacker.is_enemy(space) and space.hp < square.hp:
+                            defender = space
+                    return path + (defender.pos,)
         return tuple()
 
     def __repr__(self):
@@ -142,27 +148,15 @@ class Board:
         representation.extend(repr(u) for u in self.units)
         return '\n'.join(representation)
 
-    def play(self):
-        path = self.find_path(self.attacker)
+    def play(self, attacker):
+        path = self.find_path(attacker)
         if len(path) > 2:
             p1, p2 = path[0], path[1]
             self[p2], self[p1] = self[p1], self[p2]
             path = path[1:]
         if len(path) == 2:
-            defender = None
-            for diff in self.READ_ORDER:
-                obj = self[self.attacker.pos + diff]
-                if self.attacker.is_enemy(obj) and (not defender or defender.hp > obj.hp):
-                    defender = obj
-            defender.hp -= self.attacker.ap
-        self.unit_order = self.unit_order[1:]
-
-    @property
-    def attacker(self):
-        if not self.unit_order:
-            self.unit_order = self.units
-            self.round += 1
-        return self.unit_order[0]
+            defender = self[path[1]]
+            defender.hp -= attacker.ap
 
 
 def part1(lines):
@@ -172,8 +166,14 @@ def part1(lines):
         'G': Unit.make_unit_class('G'),
         '#': Wall,
         '.': Space})
+    unit_order = board.units
     while len(set(type(u) for u in board.units)) > 1:
-        board.play()
+        attacker = unit_order.pop(0)
+        board.play(attacker)
+        print(board)
+        if not unit_order:
+            unit_order = board.units
+            board.round += 1
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
