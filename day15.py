@@ -148,15 +148,19 @@ class Board:
         representation.extend(repr(u) for u in self.units)
         return '\n'.join(representation)
 
-    def play(self, attacker):
-        path = self.find_path(attacker)
-        if len(path) > 2:
-            p1, p2 = path[0], path[1]
-            self[p2], self[p1] = self[p1], self[p2]
-            path = path[1:]
-        if len(path) == 2:
-            defender = self[path[1]]
-            defender.hp -= attacker.ap
+    def play_round(self):
+        for attacker in self.units:
+            if len(set(type(u) for u in self.units)) <= 1:
+                return None
+            path = self.find_path(attacker)
+            if len(path) > 2:
+                p1, p2 = path[0], path[1]
+                self[p2], self[p1] = self[p1], self[p2]
+                path = path[1:]
+            if len(path) == 2:
+                defender = self[path[1]]
+                defender.hp -= attacker.ap
+        self.round += 1
 
 
 def part1(lines):
@@ -166,14 +170,9 @@ def part1(lines):
         'G': Unit.make_unit_class('G'),
         '#': Wall,
         '.': Space})
-    unit_order = board.units
     while len(set(type(u) for u in board.units)) > 1:
-        attacker = unit_order.pop(0)
-        board.play(attacker)
+        board.play_round()
         print(board)
-        if not unit_order:
-            unit_order = board.units
-            board.round += 1
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
@@ -248,6 +247,6 @@ if __name__ == '__main__':
         # assert part2_score == part2(board)
     board = get_input(day=15, year=2018)
     print("Part 1: {}".format(part1(board)))
-    print("Part 2: {}".format(part2(board)))
+    # print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
     # Is 46784
