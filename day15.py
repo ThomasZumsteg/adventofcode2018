@@ -1,3 +1,4 @@
+#!/usr/bin/env pipenv run python
 import re
 import itertools
 import collections
@@ -152,6 +153,8 @@ class Board:
         for attacker in self.units:
             if len(set(type(u) for u in self.units)) <= 1:
                 return None
+            if attacker.hp <= 0:
+                continue
             path = self.find_path(attacker)
             if len(path) > 2:
                 p1, p2 = path[0], path[1]
@@ -171,8 +174,9 @@ def part1(lines):
         '#': Wall,
         '.': Space})
     while len(set(type(u) for u in board.units)) > 1:
-        board.play_round()
         print(board)
+        board.play_round()
+    print(board)
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
@@ -209,6 +213,13 @@ sample_boards = [("""#######
 #..G#E#
 #.....#
 #######""", 27730, 4988),
+("""#######
+#G..#E#
+#E#E.E#
+#G.##.#
+#...#E#
+#...E.#
+#######""", 36334, None),
 ("""#######
 #E..EG#
 #.#G.E#
