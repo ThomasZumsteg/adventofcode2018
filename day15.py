@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from get_input import get_input, line_parser
 
+
 class Point:
     def __init__(self, x, y):
         self.x = x
@@ -62,6 +63,14 @@ class Unit(BoardItem):
     def is_enemy(self, other):
         return isinstance(other, Unit) and not isinstance(other, type(self))
 
+    def find_defender(self):
+        defender = None
+        for diff in [self.board[self.pos + diff] for diff in self.board.READ_ORDER]:
+            if self.is_enemy(diff):
+                if not defender or diff.hp < defender.hp:
+                    defender = diff
+        return defender
+
     @classmethod
     def make_unit_class(cls, char, attack=3, hp=200, on_death=None):
         unit_type = "Elf" if char == "E" else "Goblin"
@@ -81,6 +90,9 @@ class Board:
     def __init__(self):
         self._rows = []
         self.round = 0
+
+    class NoEnemies(Exception):
+        pass
 
     @classmethod
     def make_board(cls, lines, mapping):
@@ -118,30 +130,33 @@ class Board:
         return [u for row in self for u in row if isinstance(u, Unit)]
 
     def find_path(self, attacker):
-        queue = [(attacker.pos, )]
-        seen = set()
+        queue = [(attacker.pos+d, attacker.pos+d) for d in self.READ_ORDER]
+        enemies = [unit for unit in self.units if attacker.is_enemy(unit)]
+        if not enemies:
+            raise type(self).NoEnemies("No enemies")
+        goals = set()
+        for unit in enemies:
+            for diff in self.READ_ORDER:
+                space = unit.pos + diff
+                if isinstance(self[space], Space):
+                    goals.add(space)
+        import pdb; pdb.set_trace()
+        seen = set((attacker.pos,))
         while queue:
-            path = queue.pop(0)
-            point = path[-1]
-            if point in seen:
+            first, current = queue.pop(0)
+            if current in seen:
                 continue
-            seen.add(point)
+            seen.add(current)
+            if current in goals:
+                return first
             for diff in type(self).READ_ORDER:
-                new = point + diff
+                new = current + diff
                 try:
                     square = self[new]
                 except IndexError:
                     continue
                 if isinstance(square, Space):
-                    queue.append(path + (new,))
-                elif attacker.is_enemy(square):
-                    defender = square
-                    for diff in self.READ_ORDER:
-                        space = self[path[-1]+diff]
-                        if attacker.is_enemy(space) and space.hp < square.hp:
-                            defender = space
-                    return path + (defender.pos,)
-        return tuple()
+                    queue.append((first, new))
 
     def __repr__(self):
         representation = [f"Round {self.round}"]
@@ -151,18 +166,17 @@ class Board:
 
     def play_round(self):
         for attacker in self.units:
-            if len(set(type(u) for u in self.units)) <= 1:
-                return None
             if attacker.hp <= 0:
                 continue
-            path = self.find_path(attacker)
-            if len(path) > 2:
-                p1, p2 = path[0], path[1]
-                self[p2], self[p1] = self[p1], self[p2]
-                path = path[1:]
-            if len(path) == 2:
-                defender = self[path[1]]
+
+            move = self.find_path(attacker)
+            if move:
+                self[attacker.pos], self[move] = self[move], self[attacker.pos]
+
+            defender = attacker.find_defender()
+            if defender:
                 defender.hp -= attacker.ap
+
         self.round += 1
 
 
@@ -173,9 +187,12 @@ def part1(lines):
         'G': Unit.make_unit_class('G'),
         '#': Wall,
         '.': Space})
-    while len(set(type(u) for u in board.units)) > 1:
+    while True:
         print(board)
-        board.play_round()
+        try:
+            board.play_round()
+        except Board.NoEnemies:
+            break
     print(board)
     return sum(u.hp for u in board.units) * board.round
 
