@@ -130,7 +130,12 @@ class Board:
         return [u for row in self for u in row if isinstance(u, Unit)]
 
     def find_path(self, attacker):
-        queue = [(attacker.pos+d, attacker.pos+d) for d in self.READ_ORDER]
+        queue = []
+        for d in self.READ_ORDER:
+            if attacker.is_enemy(self[attacker.pos+d]):
+                return attacker.pos
+            elif isinstance(self[attacker.pos+d], Space):
+                queue.append((attacker.pos+d,attacker.pos+d))
         enemies = [unit for unit in self.units if attacker.is_enemy(unit)]
         if not enemies:
             raise type(self).NoEnemies("No enemies")
@@ -140,7 +145,6 @@ class Board:
                 space = unit.pos + diff
                 if isinstance(self[space], Space):
                     goals.add(space)
-        import pdb; pdb.set_trace()
         seen = set((attacker.pos,))
         while queue:
             first, current = queue.pop(0)
@@ -188,34 +192,40 @@ def part1(lines):
         '#': Wall,
         '.': Space})
     while True:
-        print(board)
         try:
             board.play_round()
         except Board.NoEnemies:
             break
-    print(board)
     return sum(u.hp for u in board.units) * board.round
 
 def part2(lines):
     """Solution to part 2"""
     start, end, expanding, best_ap = 4, 8, True, None
     goblin_class = Unit.make_unit_class('G')
-    DeadElf = Exception
-    while start < end:
+    class DeadElf(Exception):
+        pass
+    best_score = None
+    while start <= end:
         elf_ap = (start + end) // 2 if not expanding else end
-        elf_class = Unit.make_unit_class('E', elf_ap, 300, DeadElf)
-        # print(f"Testing {start} -> {end}, {elf_class.ap}")
+        elf_class = Unit.make_unit_class('E', elf_ap, 200, DeadElf)
+        print(f"Testing {start} -> {end}, {elf_class.cls_ap}")
         board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
         try:
-            while len(set(type(u) for u in board.units)) > 1:
-                board = board.play()
+            while True:
+                board.play_round()
         except DeadElf:
+            print("Dead Elf")
             if expanding:
                 start, end = end + 1, end * 2
             else:
                 start = elf_ap + 1
                 expanding = False
-        else:
+        except Board.NoEnemies:
+            print("Elf Win")
+            score = sum(u.hp for u in board.units) * board.round
+            if best_score is None or best_ap > elf_ap:
+                best_score, best_ap = score, elf_ap
+                print(f"Best score {best_score}:{elf_class.cls_ap}")
             if expanding:
                 end = end - 1
                 expanding = False
@@ -272,9 +282,9 @@ sample_boards = [("""#######
 if __name__ == '__main__':
     for board, part1_score, part2_score in sample_boards:
         assert part1_score == part1(board)
-        # assert part2_score == part2(board)
+        assert part2_score is None or part2_score == part2(board)
     board = get_input(day=15, year=2018)
     print("Part 1: {}".format(part1(board)))
-    # print("Part 2: {}".format(part2(board)))
+    print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
     # Is 46784
