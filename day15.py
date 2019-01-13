@@ -165,7 +165,7 @@ class Board:
     def __repr__(self):
         representation = [f"Round {self.round}"]
         representation.extend(''.join(str(u) for u in row) for row in self)
-        representation.extend(repr(u) for u in self.units)
+        # representation.extend(repr(u) for u in self.units)
         return '\n'.join(representation)
 
     def play_round(self):
@@ -194,6 +194,7 @@ def part1(lines):
     while True:
         try:
             board.play_round()
+            print(board)
         except Board.NoEnemies:
             break
     return sum(u.hp for u in board.units) * board.round
@@ -208,24 +209,20 @@ def part2(lines):
     while start <= end:
         elf_ap = (start + end) // 2 if not expanding else end
         elf_class = Unit.make_unit_class('E', elf_ap, 200, DeadElf)
-        print(f"Testing {start} -> {end}, {elf_class.cls_ap}")
         board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
         try:
             while True:
                 board.play_round()
         except DeadElf:
-            print("Dead Elf")
             if expanding:
                 start, end = end + 1, end * 2
             else:
                 start = elf_ap + 1
                 expanding = False
         except Board.NoEnemies:
-            print("Elf Win")
             score = sum(u.hp for u in board.units) * board.round
             if best_score is None or best_ap > elf_ap:
                 best_score, best_ap = score, elf_ap
-                print(f"Best score {best_score}:{elf_class.cls_ap}")
             if expanding:
                 end = end - 1
                 expanding = False
@@ -280,11 +277,13 @@ sample_boards = [("""#######
 ]
 
 if __name__ == '__main__':
-    for board, part1_score, part2_score in sample_boards:
-        assert part1_score == part1(board)
-        assert part2_score is None or part2_score == part2(board)
+    # for board, part1_score, part2_score in sample_boards:
+    #     assert part1_score == part1(board)
+    #     assert part2_score is None or part2_score == part2(board)
     board = get_input(day=15, year=2018)
+    # Issues occure during round 90, (x: 10, y: 15)
+    # Moves right when it should move down (Why?)
     print("Part 1: {}".format(part1(board)))
-    print("Part 2: {}".format(part2(board)))
+    # print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
     # Is 46784
