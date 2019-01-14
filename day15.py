@@ -87,16 +87,17 @@ class Unit(BoardItem):
 class Board:
     READ_ORDER = (Point(0, -1), Point(-1, 0), Point(1, 0), Point(0, 1))
 
-    def __init__(self):
+    def __init__(self, power=3):
         self._rows = []
         self.round = 0
+        self.power = power
 
     class NoEnemies(Exception):
         pass
 
     @classmethod
-    def make_board(cls, lines, mapping):
-        board = cls()
+    def make_board(cls, lines, mapping, power=3):
+        board = cls(power)
         for y, line in enumerate(lines.splitlines()):
             for x, char in enumerate(list(line)):
                 board[Point(x, y)] = mapping[char]()
@@ -163,7 +164,7 @@ class Board:
                     queue.append((first, new))
 
     def __repr__(self):
-        representation = [f"Round {self.round}"]
+        representation = [f"Round {self.round}/{self.power}"]
         representation.extend(''.join(str(u) for u in row) for row in self)
         # representation.extend(repr(u) for u in self.units)
         return '\n'.join(representation)
@@ -201,34 +202,21 @@ def part1(lines):
 
 def part2(lines):
     """Solution to part 2"""
-    start, end, expanding, best_ap = 4, 8, True, None
     goblin_class = Unit.make_unit_class('G')
     class DeadElf(Exception):
         pass
-    best_score = None
-    while start <= end:
-        elf_ap = (start + end) // 2 if not expanding else end
+    for elf_ap in itertools.count(4):
         elf_class = Unit.make_unit_class('E', elf_ap, 200, DeadElf)
-        board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space})
+        board = Board.make_board(lines, {'E': elf_class, 'G': goblin_class, '#': Wall, '.': Space}, power=elf_ap)
         try:
             while True:
                 board.play_round()
         except DeadElf:
-            if expanding:
-                start, end = end + 1, end * 2
-            else:
-                start = elf_ap + 1
-                expanding = False
+            continue
         except Board.NoEnemies:
-            score = sum(u.hp for u in board.units) * board.round
-            if best_score is None or best_ap > elf_ap:
-                best_score, best_ap = score, elf_ap
-            if expanding:
-                end = end - 1
-                expanding = False
-            else:
-                end = elf_ap - 1
-    return best_score
+            return sum(u.hp for u in board.units) * board.round
+        finally:
+            print(board)
 
 sample_boards = [("""#######
 #.G...#
@@ -283,7 +271,7 @@ if __name__ == '__main__':
     board = get_input(day=15, year=2018)
     # Issues occure during round 90, (x: 10, y: 15)
     # Moves right when it should move down (Why?)
-    print("Part 1: {}".format(part1(board)))
-    # print("Part 2: {}".format(part2(board)))
+    # print("Part 1: {}".format(part1(board)))
+    print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
     # Is 46784
