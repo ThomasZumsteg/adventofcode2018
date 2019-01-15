@@ -136,7 +136,7 @@ class Board:
             if attacker.is_enemy(self[attacker.pos+d]):
                 return attacker.pos
             elif isinstance(self[attacker.pos+d], Space):
-                queue.append((attacker.pos+d,attacker.pos+d))
+                queue.append((0, d, attacker.pos+d))
         enemies = [unit for unit in self.units if attacker.is_enemy(unit)]
         if not enemies:
             raise type(self).NoEnemies("No enemies")
@@ -147,13 +147,18 @@ class Board:
                 if isinstance(self[space], Space):
                     goals.add(space)
         seen = set((attacker.pos,))
+        move, move_steps = None, None
         while queue:
-            first, current = queue.pop(0)
+            steps, first, current = queue.pop(0)
             if current in seen:
                 continue
             seen.add(current)
             if current in goals:
-                return first
+                if move_steps is None or steps < move_steps:
+                    move, move_steps = first, steps
+                elif steps == move_steps and first != move:
+                    if self.READ_ORDER.index(first) < self.READ_ORDER.index(move):
+                        move = first
             for diff in type(self).READ_ORDER:
                 new = current + diff
                 try:
@@ -161,7 +166,8 @@ class Board:
                 except IndexError:
                     continue
                 if isinstance(square, Space):
-                    queue.append((first, new))
+                    queue.append((steps+1, first, new))
+        return None if move is None else move + attacker.pos
 
     def __repr__(self):
         representation = [f"Round {self.round}/{self.power}"]
