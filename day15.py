@@ -148,6 +148,8 @@ class Board:
                     goals.add(space)
         seen = set((attacker.pos,))
         move, move_steps = None, None
+        if self.round == 90:
+            import pdb; pdb.set_trace()
         while queue:
             steps, first, current = queue.pop(0)
             if current in seen:
@@ -221,8 +223,6 @@ def part2(lines):
             continue
         except Board.NoEnemies:
             return sum(u.hp for u in board.units) * board.round
-        finally:
-            print(board)
 
 sample_boards = [("""#######
 #.G...#
@@ -271,13 +271,13 @@ sample_boards = [("""#######
 ]
 
 if __name__ == '__main__':
-    # for board, part1_score, part2_score in sample_boards:
-    #     assert part1_score == part1(board)
-    #     assert part2_score is None or part2_score == part2(board)
+    for board, part1_score, part2_score in sample_boards:
+        assert part1_score == part1(board)
+        # assert part2_score is None or part2_score == part2(board)
     board = get_input(day=15, year=2018)
     # Issues occure during round 90, (x: 10, y: 15)
     # Moves right when it should move down (Why?)
     # print("Part 1: {}".format(part1(board)))
-    print("Part 2: {}".format(part2(board)))
+    # print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
     # Is 46784
