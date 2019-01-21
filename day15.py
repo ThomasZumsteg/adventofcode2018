@@ -61,7 +61,7 @@ class Unit(BoardItem):
                 raise self.on_death(repr(self))
 
     def is_enemy(self, other):
-        return isinstance(other, Unit) and not isinstance(other, type(self))
+        return isinstance(other, Unit) and not isinstance(other, type(self)) and other.hp > 0
 
     def find_defender(self):
         defender = None
@@ -131,45 +131,26 @@ class Board:
         return [u for row in self for u in row if isinstance(u, Unit)]
 
     def find_path(self, attacker):
-        queue = []
-        for d in self.READ_ORDER:
-            if attacker.is_enemy(self[attacker.pos+d]):
-                return attacker.pos
-            elif isinstance(self[attacker.pos+d], Space):
-                queue.append((0, d, attacker.pos+d))
-        enemies = [unit for unit in self.units if attacker.is_enemy(unit)]
-        if not enemies:
-            raise type(self).NoEnemies("No enemies")
-        goals = set()
-        for unit in enemies:
+        targets = set()
+        for unit in [u for u in self.units if attacker.is_enemy(u)]:
             for diff in self.READ_ORDER:
-                space = unit.pos + diff
-                if isinstance(self[space], Space):
-                    goals.add(space)
-        seen = set((attacker.pos,))
-        move, move_steps = None, None
-        if self.round == 90:
-            import pdb; pdb.set_trace()
+                if isinstance(self[unit.pos + diff], Space):
+                    targets.add(unit.pos + diff)
+        queue = [(0, attacker.pos + diff, attacker.pos) for diff in self.READ_ORDER]
+        step_map = {}
         while queue:
-            steps, first, current = queue.pop(0)
-            if current in seen:
+            steps, pos, prev = queue.pop(0)
+            if pos in step_map or not isinstance(self[pos], Space):
                 continue
-            seen.add(current)
-            if current in goals:
-                if move_steps is None or steps < move_steps:
-                    move, move_steps = first, steps
-                elif steps == move_steps and first != move:
-                    if self.READ_ORDER.index(first) < self.READ_ORDER.index(move):
-                        move = first
-            for diff in type(self).READ_ORDER:
-                new = current + diff
-                try:
-                    square = self[new]
-                except IndexError:
-                    continue
-                if isinstance(square, Space):
-                    queue.append((steps+1, first, new))
-        return None if move is None else move + attacker.pos
+            step_map[pos] = (steps, prev)
+            for diff in self.READ_ORDER:
+                queue.append((steps + 1, pos + diff, pos))
+        smallest, first = None, None
+        for unit in [u for row in self for u in row]:
+            steps, current = step_map.get(unit.pos, (smallest, first))
+            if unit.pos in targets and (smallest is None or smallest > steps):
+                smallest, first = steps, current
+        return first
 
     def __repr__(self):
         representation = [f"Round {self.round}/{self.power}"]
