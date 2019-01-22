@@ -134,23 +134,26 @@ class Board:
         targets = set()
         for unit in [u for u in self.units if attacker.is_enemy(u)]:
             for diff in self.READ_ORDER:
-                if isinstance(self[unit.pos + diff], Space):
-                    targets.add(unit.pos + diff)
-        queue = [(0, attacker.pos + diff, attacker.pos) for diff in self.READ_ORDER]
+                if attacker == self[unit.pos + diff]:
+                    return None
+                elif not isinstance(self[unit.pos + diff], Space):
+                    continue
+                targets.add(unit.pos + diff)
+        queue = [(0, attacker.pos, None)]
         step_map = {}
         while queue:
             steps, pos, prev = queue.pop(0)
-            if pos in step_map or not isinstance(self[pos], Space):
-                continue
+            if pos in step_map or not (isinstance(self[pos], Space) or prev is None): 
+                continue 
             step_map[pos] = (steps, prev)
             for diff in self.READ_ORDER:
                 queue.append((steps + 1, pos + diff, pos))
         smallest, first = None, None
         for unit in [u for row in self for u in row]:
-            steps, current = step_map.get(unit.pos, (smallest, first))
-            if unit.pos in targets and (smallest is None or smallest > steps):
-                smallest, first = steps, current
-        return first
+            steps, pos = step_map.get(unit.pos, (smallest, first))
+            if pos is not None and (smallest is None or smallest > steps):
+                import pdb; pdb.set_trace()
+                smallest, first = steps, pos 
 
     def __repr__(self):
         representation = [f"Round {self.round}/{self.power}"]
