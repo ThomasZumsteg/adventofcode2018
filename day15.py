@@ -83,6 +83,22 @@ class Unit(BoardItem):
         Cls.on_death = on_death
         return Cls 
 
+    def get_targets(self):
+        targets = set()
+        enemies = [u for u in self.board.units if self.is_enemy(u)]
+        if enemies == []:
+            raise Board.NoEnemies
+        for unit in enemies:
+            for diff in self.board.READ_ORDER:
+                if isinstance(self.board[unit.pos + diff], Space) or \
+                        self.pos == unit.pos + diff:
+                    targets.add(unit.pos + diff)
+        return targets
+
+    def attack(self, defender):
+        if defender is not None:
+            defender.hp -= self.ap
+
 
 class Board:
     READ_ORDER = (Point(0, -1), Point(-1, 0), Point(1, 0), Point(0, 1))
@@ -130,15 +146,9 @@ class Board:
     def units(self):
         return [u for row in self for u in row if isinstance(u, Unit)]
 
-    def find_path(self, attacker):
-        targets = set()
-        for unit in [u for u in self.units if attacker.is_enemy(u)]:
-            for diff in self.READ_ORDER:
-                if attacker == self[unit.pos + diff]:
-                    return None
-                elif not isinstance(self[unit.pos + diff], Space):
-                    continue
-                targets.add(unit.pos + diff)
+    def find_move(self, attacker, targets):
+        if attacker.pos in targets:
+            return None
         queue = [(0, attacker.pos, None)]
         step_map = {}
         while queue:
@@ -149,31 +159,33 @@ class Board:
             for diff in self.READ_ORDER:
                 queue.append((steps + 1, pos + diff, pos))
         smallest, first = None, None
-        for unit in [u for row in self for u in row]:
-            steps, pos = step_map.get(unit.pos, (smallest, first))
-            if pos is not None and (smallest is None or smallest > steps):
-                import pdb; pdb.set_trace()
-                smallest, first = steps, pos 
+        for square in [u for row in self for u in row]:
+            steps, pos = step_map.get(square.pos, (smallest, first))
+            if square.pos in targets and (smallest is None or smallest > steps):
+                smallest, first = steps, square.pos 
+        if smallest is None:
+            return attacker.pos
+        prev = first
+        while smallest is not None and smallest > 1:
+            first = prev
+            smallest, prev = step_map[first]
+        return first or attacker.pos
 
     def __repr__(self):
         representation = [f"Round {self.round}/{self.power}"]
         representation.extend(''.join(str(u) for u in row) for row in self)
-        # representation.extend(repr(u) for u in self.units)
+        representation.extend(repr(u) for u in self.units)
         return '\n'.join(representation)
 
     def play_round(self):
         for attacker in self.units:
             if attacker.hp <= 0:
                 continue
-
-            move = self.find_path(attacker)
-            if move:
-                self[attacker.pos], self[move] = self[move], self[attacker.pos]
-
+            targets = attacker.get_targets()
+            move = self.find_move(attacker, targets)
+            self[attacker.pos], self[move] = self[move], self[attacker.pos]
             defender = attacker.find_defender()
-            if defender:
-                defender.hp -= attacker.ap
-
+            attacker.attack(defender)
         self.round += 1
 
 
@@ -187,7 +199,6 @@ def part1(lines):
     while True:
         try:
             board.play_round()
-            print(board)
         except Board.NoEnemies:
             break
     return sum(u.hp for u in board.units) * board.round
@@ -257,11 +268,11 @@ sample_boards = [("""#######
 if __name__ == '__main__':
     for board, part1_score, part2_score in sample_boards:
         assert part1_score == part1(board)
-        # assert part2_score is None or part2_score == part2(board)
+        assert part2_score is None or part2_score == part2(board)
     board = get_input(day=15, year=2018)
     # Issues occure during round 90, (x: 10, y: 15)
     # Moves right when it should move down (Why?)
-    # print("Part 1: {}".format(part1(board)))
-    # print("Part 2: {}".format(part2(board)))
+    print("Part 1: {}".format(part1(board)))
+    print("Part 2: {}".format(part2(board)))
     # Not 47678 46140
     # Is 46784
