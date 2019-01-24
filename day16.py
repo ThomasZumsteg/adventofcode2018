@@ -1,8 +1,6 @@
 #!/usr/bin/env pipenv run python
 
-import collections
 import re
-import enum
 
 from get_input import get_input
 
@@ -43,18 +41,35 @@ def part1(tests):
         count += 1 if works >= 3 else 0
     return count
 
-def part2(lines):
+def part2(tests, program):
     """Solution to part 2"""
-    pass
+    possible_optcodes = {n: set(funcs.keys()) for n in range(16)}
+    for before, registers, after in tests:
+        for name, func in funcs.items():
+            if after != func(registers, before):
+                possible_optcodes[registers[0]].discard(name)
+    optcodes = {}
+    while any(len(v) == 1 for v in possible_optcodes.values()):
+        code, name = next((k, v) for k, v in possible_optcodes.items() if len(v) == 1)
+        name = name.pop()
+        optcodes[code] = name
+        del possible_optcodes[code]
+        for value in possible_optcodes.values():
+            value.discard(name)
+    assert possible_optcodes == {}
+    values = (0,) * 4
+    for step in program:
+        values = funcs[optcodes[step[0]]](step, values)
+    return values[0]
 
 def parse(text):
-    BEFORE = re.compile(r'Before:\s+\[(\d+), (\d+), (\d+), (\d+)\]')
-    REGISTERS = re.compile(r'(\d+) (\d+) (\d+) (\d+)')
-    AFTER = re.compile(r'After:\s+\[(\d+), (\d+), (\d+), (\d+)\]')
-    
-    groups = [BEFORE, REGISTERS, AFTER]
+    groups = (
+        re.compile(r'Before:\s+\[(\d+), (\d+), (\d+), (\d+)\]'),
+        re.compile(r'(\d+) (\d+) (\d+) (\d+)'),
+        re.compile(r'After:\s+\[(\d+), (\d+), (\d+), (\d+)\]'),
+        )
     tests = []
-    blank_line = True
+    blank_line = None 
     lines = iter(text.splitlines())
     for i, line in enumerate(lines): 
         if line == '':
@@ -69,10 +84,10 @@ def parse(text):
         match = groups[i % 4].match(line)
         tests[-1].append(tuple(int(n) for n in match.groups()))
 
-    next(lines)
+    next(lines) # Skip one blank line
     events = []
     for line in lines:
-        match = REGISTERS.match(line)
+        match = groups[1].match(line)
         events.append(tuple(int(n) for n in match.groups()))
 
     return tuple(tuple(t) for t in tests), tuple(events)
@@ -81,4 +96,4 @@ def parse(text):
 if __name__ == '__main__':
     tests, events = parse(get_input(day=16, year=2018))
     print("Part 1: {}".format(part1(tests)))
-    print("Part 2: {}".format(part2(events)))
+    print("Part 2: {}".format(part2(tests, events)))
