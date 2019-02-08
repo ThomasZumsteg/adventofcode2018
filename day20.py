@@ -20,86 +20,54 @@ Point.DIRECTIONS = {
     "W": Point(-1, 0)
 }
 
-
-def make_map(paths):
-    queue = [(Point(0, 0), paths),]
-    room_map = collections.defaultdict(set)
-    seen = set()
+def map_distances(room_map):
+    queue = [(Point(0, 0), 0)]
+    door_counts = {}
     while queue:
-        state = queue.pop()
-        if state in seen:
+        position, doors = queue.pop()
+        if position in door_counts:
             continue
-        seen.add(state)
-        position, paths = state
-        if paths == ():
-            continue
-        elif isinstance(paths[0], Point):
-            next_position = position + paths[0]
-            room_map[position].add(next_position)
-            room_map[next_position].add(position)
-            queue.append((next_position, paths[1:]))
-        elif isinstance(paths[0], tuple):
-            for path in paths[0]:
-                queue.append((position, path + paths[1:]))
-    return room_map
+        door_counts[position] = doors
+        for next_position in room_map[position]:
+            queue.append((next_position, doors + 1))
+    return door_counts
 
-
-def part1(paths):
+def part1(room_map):
     """Solution to part 1"""
-    room_map = make_map(paths)
-    queue = [(Point(0, 0), 0)]
-    door_counts = {}
-    while queue:
-        position, doors = queue.pop()
-        if position in door_counts:
-            continue
-        door_counts[position] = doors
-        for next_position in room_map[position]:
-            queue.append((next_position, doors + 1))
-    return max(door_counts.values())
+    return max(map_distances(room_map).values())
 
-
-def part2(paths):
+def part2(room_map):
     """Solution to part 2"""
-    room_map = make_map(paths)
-    queue = [(Point(0, 0), 0)]
-    door_counts = {}
-    while queue:
-        position, doors = queue.pop()
-        if position in door_counts:
-            continue
-        door_counts[position] = doors
-        for next_position in room_map[position]:
-            queue.append((next_position, doors + 1))
-    return sum(1 for d in door_counts.values() if d >= 1000)
+    return sum(1 for d in map_distances(room_map).values() if d >= 1000)
 
-def parse(text):
-    assert text[0] == '^' and text[-1] == '$'
-    stack = [[]]
-    for char in text[1:-1]:
+def parse(chars):
+    chars = chars.strip('$^')
+    stack = []
+    location = Point(0, 0)
+    door_map = collections.defaultdict(set)
+    while chars:
+        char, chars = chars[0], chars[1:]
         if char in Point.DIRECTIONS:
-            stack[-1].append(Point.DIRECTIONS[char])
+            new_location = location + Point.DIRECTIONS[char]
+            door_map[new_location].add(location)
+            door_map[location].add(new_location)
+            location = new_location
         elif char == '(':
-            stack.append([])
-            stack.append([])
+            stack.append(location)
         elif char == ')':
-            sequence = tuple(stack.pop())
-            stack[-1].append(sequence)
-            sequence = tuple(stack.pop())
-            stack[-1].append(sequence)
+            location = stack.pop()
         elif char == '|':
-            sequence = tuple(stack.pop())
-            stack[-1].append(sequence)
-            stack.append([])
+            location = stack[-1]
         else:
-            raise ValueError(f"WTF is this {char}")
-    assert len(stack) == 1
-    return tuple(stack.pop())
+            raise ValueError(f"What is this {char}")
+    if stack != []:
+        raise RuntimeError("Not a valid REGEX, paenthesis do not match")
+    return door_map
 
 if __name__ == '__main__':
     assert part1(parse("^WNE$")) == 3
     assert part1(parse("^ENWWW(NEEE|SSE(EE|N))$")) == 10
     assert part1(parse("^ENNWSWW(NEWS|)SSSEEN(WNSE|)EE(SWEN|)NNN$")) == 18
-    regex = parse(get_input(day=20, year=2018).strip())
-    print("Part 1: {}".format(part1(regex)))
-    print("Part 2: {}".format(part2(regex)))
+    mapping = parse(get_input(day=20, year=2018).strip())
+    print("Part 1: {}".format(part1(mapping)))
+    print("Part 2: {}".format(part2(mapping)))
