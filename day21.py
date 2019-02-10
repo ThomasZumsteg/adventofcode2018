@@ -53,29 +53,33 @@ funcs = {
 
 def part1(*, ip, program):
     """Solution to part 1"""
-    values_list = [[i, 0, 0, 0, 0, 0] for i in range(1)]
-    solution = None
-    steps = 0
-    while solution is None:
-        new_list = []
-        for v, values in enumerate(values_list):
-            if not 0 <= values[ip] < len(program):
-                solution = v
-                break
-            line = program[values[ip]]
-            if v == 0:
-                log.debug(FORMAT.format(values[ip], line.instr, *line.reg, *values))
-            values = funcs[line.instr](line.reg, values)
-            values[ip] += 1
-            new_list.append(values)
-        out.info(steps)
-        values_list = new_list
-        steps += 1
-    return solution
+    values = [0, 0, 0, 0, 0, 0]
+    # i 28 found through static analysis
+    while values[ip] != 28:
+        line = program[values[ip]]
+        # log.debug(FORMAT.format(values[ip], line.instr, *line.reg, *values))
+        values = funcs[line.instr](line.reg, values)
+        values[ip] += 1
+    # static analysis
+    return values[3]
 
 def part2(*, ip, program):
     """Solution to part 2"""
-    pass
+    values = [0, 0, 0, 0, 0, 0]
+    result = None
+    seen = set()
+    # i 28 found through static analysis
+    while result is None or result not in seen:
+        line = program[values[ip]]
+        if values[ip] == 28:
+            log.debug(FORMAT.format(values[ip], line.instr, *line.reg, *values))
+            if result is not None:
+                seen.add(result)
+            result = values[3]
+        values = funcs[line.instr](line.reg, values)
+        values[ip] += 1
+    import pdb; pdb.set_trace()
+    # static analysis
 
 def parse(text):
     lines = iter(text.splitlines())
@@ -100,23 +104,23 @@ if __name__ == '__main__':
 3  addr       3        4 4 # JMP 
 4  seti       0        0 4 # GOTO 0
 5  seti       0        5 3 
-    6  bori       3    65536 5
-    7  seti 5557974        2 3
+    6  bori       3    65536 5 # r5 = 65536 | r3 
+    7  seti 5557974        2 3 # r3 = 5557974
         8  bani       5      255 2
-        9  addr       3        2 3
-        10 bani       3 16777215 3
-        11 muli       3    65899 3
-        12 bani       3 16777215 3
-        13 gtir     256        5 2 # GOTO 27 if 256 > r5 else GOTO 17
+        9  addr       3        2 3 # r3 += r5 & 255
+        10 bani       3 16777215 3 # r3 &= 16777215
+        11 muli       3    65899 3 # r3 *= 65899
+        12 bani       3 16777215 3 # r3 &= 16777215
+        13 gtir     256        5 2 # GOTO 28 if 256 > r5 else GOTO 17
         14 addr       2        4 4 # 
         15 addi       4        1 4 # GOTO 17
-        16 seti      27        9 4 # GOTO 27
-        17 seti       0        0 2
-            18 addi       2        1 1
-            19 muli       1      256 1
-            20 gtrr       1        5 1 # (r2++; GOTO 17) if r1 > r5 else GOTO 24
+        16 seti      27        9 4 # GOTO 28
+        17 seti       0        0 2 # r2 = 0
+            18 addi       2        1 1 # r1 = 1 + r2
+            19 muli       1      256 1 # r1 *= 256
+            20 gtrr       1        5 1 # (r2++; GOTO 17) if r1 > r5 else GOTO 25
             21 addr       1        4 4 #
-            22 addi       4        1 4 # GOTO 24
+            22 addi       4        1 4
             23 seti      25        4 4 # GOTO 25
             24 addi       2        1 2 # r2++
         25 seti      17        6 4 # GOTO 17
