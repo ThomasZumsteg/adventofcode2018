@@ -63,23 +63,21 @@ def part1(*, ip, program):
     # static analysis
     return values[3]
 
-def part2(*, ip, program):
+def part2(**_):
     """Solution to part 2"""
-    values = [0, 0, 0, 0, 0, 0]
-    result = None
-    seen = set()
-    # i 28 found through static analysis
-    while result is None or result not in seen:
-        line = program[values[ip]]
-        if values[ip] == 28:
-            log.debug(FORMAT.format(values[ip], line.instr, *line.reg, *values))
-            if result is not None:
-                seen.add(result)
-            result = values[3]
-        values = funcs[line.instr](line.reg, values)
-        values[ip] += 1
-    import pdb; pdb.set_trace()
     # static analysis
+    seen = set()
+    state = (0, 0)
+    steps = 0
+    min_steps = {}
+    while state not in seen:
+        seen.add(state)
+        if state[0] not in min_steps:
+            min_steps[state[0]] = steps
+        steps += 1
+        state = update_func(*state)
+    return max(min_steps.items(), key=lambda kv: kv[1])[0]
+
 
 def parse(text):
     lines = iter(text.splitlines())
@@ -90,6 +88,21 @@ def parse(text):
         m = program_re.match(line).groups()
         program.append(Instruction(m[0], tuple(int(n) for n in m[1:])))
     return {'ip': ip, 'program': tuple(program)}
+
+def update_func(r3, r5):
+    """From static analysis"""
+    r5 = 65536 | r3
+    r3 = 5557974
+    while True:
+        r3 += r5 & 255
+        r3 &= 16777215
+        r3 *= 65899
+        r3 &= 16777215
+        if r5 < 256:
+            break
+        r5 //= 256
+    return r3, r5
+
 
 if __name__ == '__main__':
     args = parse(get_input(day=21, year=2018))
@@ -124,7 +137,7 @@ if __name__ == '__main__':
             23 seti      25        4 4 # GOTO 25
             24 addi       2        1 2 # r2++
         25 seti      17        6 4 # GOTO 17
-        26 setr       2        2 5 # r2 = r5
+        26 setr       2        2 5 # r5 = r2
         27 seti       7        1 4 # GOTO 7
     28 eqrr       3        0 2 # EXIT if r3 == r0 GOTO 5 (r0 is set by me)
 29 addr       2        4 4 # EXIT if 2 > 0
