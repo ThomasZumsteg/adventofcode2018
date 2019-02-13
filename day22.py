@@ -21,6 +21,9 @@ class Point(collections.namedtuple("Point", ["x", "y"])):
         m = re.match(r'target: (\d+),(\d+)', line)
         return cls(*(int(g) for g in m.groups()))
 
+    def distance(self, other):
+        return abs(self.x - other.x) + abs(self.y - other.y)
+
 Point.DIRECTIONS = (
     Point(0, 1),
     Point(0, -1),
@@ -85,32 +88,41 @@ def part1(depth, target):
 def part2(depth, target):
     """Solution to part 2"""
     class Gear(enum.Enum):
-        NONE = (1, 2)
-        TORCH = (0, 2)
-        CLIMB = (0, 1)
+        NONE = 0 # WET (1), NARROW (2)
+        TORCH = 1 # ROCKY (0), NARROW (2)
+        CLIMB = 2 # ROCKY (0), WET (1)
 
         def __lt__(self, other):
             return self.value < other.value # pylint: disable=comparison-with-callable
 
+        def get_compliment(self, terrain):
+            return Gear(3 - terrain - self.value)
+
 
     mapping = GeologicalMap(depth, target)
-    queue = [(0, Point(0, 0), Gear.TORCH)]
+    queue = [(Point(0, 0).distance(target), Point(0, 0), Gear.TORCH)]
     seen = set()
+    path_map = {}
+
     while queue:
-        time, position, gear = heapq.heappop(queue)
-        print(f"{time:3d}: {len(queue):5d} - {position}")
+        _, position, gear = heapq.heappop(queue)
+        print(f"{len(queue):5d} - {position}")
         if position == mapping.target and gear == Gear.TORCH:
-            return time
-        if position not in mapping or (mapping[position] % 3) not in gear.value:
-            continue
+            import pdb; pdb.set_trace()
         if (position, gear) in seen:
             continue
         seen.add((position, gear))
+
+        other_gear = gear.get_compliment(mapping[position] % 3)
+        path_map.setdefault((position, other_gear), (position, gear))
+        heapq.heappush(queue, (target.distance(position), position, other_gear))
+
         for direction in Point.DIRECTIONS:
-            heapq.heappush(queue, (time + 1, position + direction, gear))
-        for new_gear in Gear:
-            if new_gear != gear:
-                heapq.heappush(queue, (time + 7, position, new_gear))
+            new_position = position + direction
+            heapq.heappush(
+                queue, (target.distance(new_position), new_position, gear))
+            path_map.setdefault((new_position, gear), (position, gear))
+
     raise ValueError("Cannot be done")
 
 
