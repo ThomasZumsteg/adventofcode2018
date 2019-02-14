@@ -100,28 +100,34 @@ def part2(depth, target):
 
 
     mapping = GeologicalMap(depth, target)
-    queue = [(Point(0, 0).distance(target), Point(0, 0), Gear.TORCH)]
+    queue = [(Point(0, 0).distance(target), 0, Point(0, 0), Gear.TORCH)]
     seen = set()
-    path_map = {}
 
     while queue:
-        _, position, gear = heapq.heappop(queue)
-        print(f"{len(queue):5d} - {position}")
+        _, time, position, gear = heapq.heappop(queue)
         if position == mapping.target and gear == Gear.TORCH:
-            import pdb; pdb.set_trace()
-        if (position, gear) in seen:
+            return time
+        if position.x < 0 or position.y < 0 or\
+                mapping[position] % 3 == gear.value or\
+                (position, gear) in seen:
             continue
         seen.add((position, gear))
 
         other_gear = gear.get_compliment(mapping[position] % 3)
-        path_map.setdefault((position, other_gear), (position, gear))
-        heapq.heappush(queue, (target.distance(position), position, other_gear))
+        heapq.heappush(queue, (
+            time + 7 + target.distance(position),
+            time + 7,
+            position,
+            other_gear))
 
         for direction in Point.DIRECTIONS:
             new_position = position + direction
             heapq.heappush(
-                queue, (target.distance(new_position), new_position, gear))
-            path_map.setdefault((new_position, gear), (position, gear))
+                queue, (
+                    time + 1 + target.distance(new_position),
+                    time + 1,
+                    new_position,
+                    gear))
 
     raise ValueError("Cannot be done")
 
