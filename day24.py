@@ -1,7 +1,7 @@
 #!/usr/bin/env pipenv run python
 
-import collections
 import re
+import copy
 
 from get_input import get_input
 
@@ -59,8 +59,8 @@ class Immune(Group):
 
 def part1(armies):
     """Solution to part 1"""
+    armies = copy.deepcopy(armies)
     while len(set(type(g) for g in armies)) > 1:
-        print(','.join(f"{g.__class__.__name__} {g.units}" for g in armies))
         order = []
         defenders = list(armies)
         for attacker in sorted(armies, key=lambda a: (-a.effective_power, -a.initiative)):
@@ -82,9 +82,44 @@ def part1(armies):
         armies = [a for a in armies if a.units > 0]
     return sum(a.units for a in armies)
 
-def part2(armies):
+def part2(staring_armies):
     """Solution to part 2"""
-    pass
+    boost = 1
+    last_win = None
+    seen = set()
+    while True:
+        armies = copy.deepcopy(staring_armies)
+        for a in armies:
+            if isinstance(a, Immune):
+                a.ap += boost
+        while len(set(type(g) for g in armies)) > 1:
+            state = ','.join(repr(a) for a in armies)
+            if state in seen:
+                break
+            seen.add(state)
+            order = []
+            defenders = list(armies)
+            for attacker in sorted(armies, key=lambda a: (-a.effective_power, -a.initiative)):
+                try:
+                    defender = max(
+                        (d for d in defenders if not isinstance(d, type(attacker))),
+                        key=lambda d: (attacker.damage(d), d.effective_power, d.initiative))
+                    if attacker.damage(defender) == 0:
+                        raise ValueError()
+                    defenders.remove(defender)
+                    order.append((attacker, defender))
+                except ValueError:
+                    order.append((attacker, None))
+            order.sort(key=lambda o: -o[0].initiative)
+            for attacker, defender in order:
+                if attacker.units <= 0 or defender is None:
+                    continue
+                attacker.attack(defender)
+            armies = [a for a in armies if a.units > 0]
+        if all(isinstance(a, Immune) for a in armies):
+            break
+        boost += 1
+    return sum(a.units for a in armies)
 
 def parse(text):
     armies = []
@@ -119,7 +154,6 @@ Infection:
 
 if __name__ == '__main__':
     assert part1(parse(TEST)) == 5216
-    armies = parse(get_input(day=24, year=2018))
-    print("Part 1: {}".format(part1(armies)))
-    print("Part 2: {}".format(part2(armies)))
-    import pdb; pdb.set_trace()
+    ARMIES = parse(get_input(day=24, year=2018))
+    print("Part 1: {}".format(part1(ARMIES)))
+    print("Part 2: {}".format(part2(ARMIES)))
