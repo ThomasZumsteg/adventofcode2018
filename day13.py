@@ -1,8 +1,5 @@
 #!/usr/bin/env pipenv run python
-"""Solutions to day 13 of Advent of Code"""
 
-import re
-import itertools
 import collections
 from dataclasses import dataclass
 
@@ -20,10 +17,10 @@ class Point:
         return Point(self.x + other.x, self.y + other.y)
 
 DIRECTIONS = {
-    'v': Point( 0,  1),
-    '>': Point( 1,  0),
-    '<': Point(-1,  0),
-    '^': Point( 0, -1)
+    'v': Point(0, 1),
+    '>': Point(1, 0),
+    '<': Point(-1, 0),
+    '^': Point(0, -1)
     }
 
 TURNS = {
@@ -46,7 +43,7 @@ def intersection(cart, n_turn):
 
 def print_current(pos, track, cart=None):
     grid = [list((line[(pos.x-1 if pos.x > 0 else 0):pos.x+2]))
-        for line in track[(pos.y-1 if pos.y > 0 else 0):pos.y+2]]
+            for line in track[(pos.y-1 if pos.y > 0 else 0):pos.y+2]]
     if cart is not None:
         grid[1][1] = cart
     print(''.join('\n' + ''.join(row) for row in grid))
@@ -59,7 +56,7 @@ def part1(track, carts):
         for old_pos, (cart, turn) in old_carts.items():
             pos = old_pos + DIRECTIONS[cart]
             if pos in carts or (old_pos in carts and pos in old_carts):
-                return f"{pos.x},{pos.y}" 
+                return f"{pos.x},{pos.y}"
             track_segment = track[pos.y][pos.x]
             if track_segment == '+':
                 cart = intersection(cart, turn % 3)
@@ -70,32 +67,33 @@ def part1(track, carts):
 
 def part2(track, carts):
     """Solution to part 2"""
-    iters = 0
+    output = open('output_13.failing', 'w')
     while len(carts) > 1:
-        iters += 1
-        old_carts, carts = carts, dict()
-        for old_pos, cart, turn in old_carts:
+        old_carts, carts = carts, {}
+        for old_pos, (cart, turn) in old_carts.items():
             pos = old_pos + DIRECTIONS[cart]
-            track_segment = track[pos.y][pos.x]
             if pos in carts:
                 del carts[pos]
                 continue
-            elif pos in old_carts and 
+            elif old_pos in carts:
+                del carts[old_pos]
+                continue
+            track_segment = track[pos.y][pos.x]
             if track_segment == '+':
-                cart = intersection(cart, turn)
+                cart = intersection(cart, turn % 3)
                 turn += 1
             else:
                 cart = TURNS.get((cart, track_segment), cart)
             carts[pos] = (cart, turn)
-    last = list(carts)[0]
-    print_current(last, track)
-    return f"{last.x},{last.y}"
+        output.write('[' + ', '.join(sorted([f"({pos.x},{pos.y})" for pos in carts])) + ']\n')
+    pos = list(carts.keys())[0]
+    return f"{pos.x},{pos.y}"
 
 Record = collections.namedtuple('Record', 'input output')
 
 def make_track(lines):
     lines = tuple(lines.splitlines())
-    cart_types = { 'v': '|', '>': '-', '^': '|', '<': '-' }
+    cart_types = {'v': '|', '>': '-', '^': '|', '<': '-'}
     track = []
     carts = {}
     for y, row in enumerate(lines):
@@ -109,7 +107,14 @@ def make_track(lines):
     assert all(len(row) == len(track[0]) for row in track)
     return tuple(tuple(t) for t in track), carts
 
-test_track = """/>-<\  
+TEST_TRACK_1 = """/->-\        
+|   |  /----\\
+| /-+--+-\  |
+| | |  | v  |
+\-+-/  \-+--/
+  \------/   """
+
+TEST_TRACK_2 = """/>-<\  
 |   |  
 | /<+-\\
 | | | v
@@ -118,7 +123,9 @@ test_track = """/>-<\
   \<->/"""
 
 if __name__ == '__main__':
-    track, carts = make_track(get_input(day=13, year=2018))
-    print("Part 1: {}".format(part1(track, carts)))
-    # track, carts = make_track(test_track)
-    print("Part 2: {}".format(part2(track, carts)))
+    assert '7,3' == part1(*make_track(TEST_TRACK_1))
+    assert '6,4' == part2(*make_track(TEST_TRACK_2))
+    TRACK, CARTS = make_track(get_input(day=13, year=2018))
+    print("Part 1: {}".format(part1(TRACK, CARTS)))
+    # NOT (58,119), (
+    print("Part 2: {}".format(part2(TRACK, CARTS)))
