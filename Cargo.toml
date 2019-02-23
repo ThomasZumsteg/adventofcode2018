@@ -1,0 +1,15 @@
+[package]
+name = "adventofcode2018"
+version = "0.1.0"
+authors = ["Thomas Zumsteg <Thomas.Zumsteg@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "common"
+path = "src/lib.rs"
+
+[[bin]]
+name = "day01"
+path = "src/day01.rs"
+
+[dependencies]
