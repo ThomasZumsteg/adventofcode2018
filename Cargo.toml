@@ -4,12 +4,16 @@ version = "0.1.0"
 authors = ["Thomas Zumsteg <Thomas.Zumsteg@gmail.com>"]
 edition = "2018"
 
+[dependencies]
+
 [lib]
 name = "common"
-path = "src/lib.rs"
+path = "lib.rs"
 
 [[bin]]
 name = "day01"
-path = "src/day01.rs"
+path = "day01.rs"
 
-[dependencies]
+[[bin]]
+name = "day02"
+path = "day02.rs"

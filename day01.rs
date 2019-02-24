@@ -6,11 +6,7 @@ use std::vec::Vec;
 use common::get_input;
 
 fn part1(input: &Vec<i32>) -> i32 {
-    let mut total: i32 = 0;
-    for line in input {
-        total += line;
-    }
-    return total;
+    return input.into_iter().sum();
 }
 
 fn part2(input: &Vec<i32>) -> i32 {
