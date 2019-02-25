@@ -5,6 +5,7 @@ authors = ["Thomas Zumsteg <Thomas.Zumsteg@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+regex="1.1.0"
 
 [lib]
 name = "common"
@@ -17,3 +18,7 @@ path = "day01.rs"
 [[bin]]
 name = "day02"
 path = "day02.rs"
+
+[[bin]]
+name = "day03"
+path = "day03.rs"

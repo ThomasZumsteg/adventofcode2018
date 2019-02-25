@@ -18,7 +18,7 @@ fn part1(lines: &Vec<String>) -> u32 {
 
 fn part2(lines: &Vec<String>) -> String {
     for (l, head) in lines.into_iter().enumerate() {
-        for tail in lines.into_iter().skip(l) {
+        for tail in lines.into_iter().skip(l+1) {
             let same:String = head
                 .chars()
                 .into_iter()
