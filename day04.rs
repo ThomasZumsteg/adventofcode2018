@@ -82,9 +82,9 @@ impl Ord for Date {
 
 fn part1(guard_events: &HashMap<GuardId, Vec<(Date, Date)>>) -> u32 {
     let (guard, times) = guard_events
-        .into_iter()
-        .max_by_key(|(_, &times)| {
-            let mut total = 0;
+        .iter()
+        .max_by(|(a, b)| {
+            let mut total = 0;)
             for (start, stop) in times {
                 total += start.hour_diff(&stop);
             }
