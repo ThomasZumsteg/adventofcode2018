@@ -1,7 +1,6 @@
 extern crate common;
 extern crate regex;
 
-use std::ops::Sub;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -110,8 +109,29 @@ fn part1(guard_events: &HashMap<GuardId, Vec<(Date, Date)>>) -> u32 {
         .unwrap().0 as u32);
 }
 
-fn part2(events: &HashMap<GuardId, Vec<(Date, Date)>>) -> String {
-    unimplemented!()
+fn part2(events: &HashMap<GuardId, Vec<(Date, Date)>>) -> u32 {
+    let mut guard_dict = HashMap::new();
+    for (guard, times) in events {
+        for (start, stop) in times {
+            let mut current = start.clone();
+            while &current < stop {
+                let key = (guard, current.hour, current.minute);
+                *guard_dict
+                    .entry(key)
+                    .or_insert(0) += 1;
+                current.minute += 1;
+                if current.minute >= 60 {
+                    current.minute = 0;
+                    current.hour += 1;
+                }
+            }
+        }
+    }
+    let ((&guard, _, minute), _) = guard_dict
+        .iter()
+        .max_by_key(|(_, &v)| v)
+        .unwrap();
+    return (guard as u32) * (*minute as u32);
 }
 
 fn parse<'a>(lines: String) -> HashMap<GuardId, Vec<(Date, Date)>> {
