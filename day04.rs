@@ -81,17 +81,33 @@ impl Ord for Date {
 }
 
 fn part1(guard_events: &HashMap<GuardId, Vec<(Date, Date)>>) -> u32 {
-    let (guard, times) = guard_events
+    let (&guard, times, _) = guard_events
         .iter()
-        .max_by(|(a, b)| {
-            let mut total = 0;)
+        .map(|(guard, times)| {
+            let mut total = 0;
             for (start, stop) in times {
                 total += start.hour_diff(&stop);
             }
-            return total;
+            return (guard, times, total);
         })
+        .max_by_key(|(_, _, time)| *time)
         .unwrap();
-    unimplemented!();
+    let mut minute_map = HashMap::new();
+    for (start, stop) in times {
+        let mut current = start.clone();
+        while &current < stop {
+            *minute_map.entry(current.minute).or_insert(0) += 1;
+            current.minute += 1;
+            if current.minute >= 60 {
+                current.minute = 0;
+                current.hour += 1;
+            }
+        }
+    }
+    return guard as u32 * (*minute_map
+        .iter()
+        .max_by_key(|(_, &v)| v)
+        .unwrap().0 as u32);
 }
 
 fn part2(events: &HashMap<GuardId, Vec<(Date, Date)>>) -> String {
