@@ -9,16 +9,16 @@ def reduce(polymer):
     example:
         abBa => aa
     """
-    new_polymer = tuple(polymer)
+    new_polymer = polymer[:]
     polymer = None
     while not new_polymer == polymer:
-        polymer = tuple(new_polymer)
-        new_polymer = ()
+        polymer = new_polymer
+        new_polymer = []
         for p in polymer:
             if new_polymer and new_polymer[-1] != p and new_polymer[-1].lower() == p.lower():
-                new_polymer = new_polymer[:-1]
+                new_polymer.pop()
             else:
-                new_polymer += (p,)
+                new_polymer.append(p)
     return polymer
 
 
