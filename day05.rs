@@ -11,14 +11,13 @@ fn part1(characters: &String) -> usize {
         polymer = next;
         next = Vec::new();
         for &head in &polymer {
-            if let Some(&tail) = next.last() {
-                if head.to_ascii_uppercase() != tail.to_ascii_uppercase() || head == tail {
-                    next.push(head);
-                } else {
-                    next.pop();
-                }
-            } else {
+            let tail = next.last();
+            if tail == None || 
+                head.to_ascii_uppercase() != tail.unwrap().to_ascii_uppercase() || 
+                    head == *tail.unwrap() {
                 next.push(head);
+            } else {
+                next.pop();
             }
         }
     }
