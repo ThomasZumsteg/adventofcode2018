@@ -3,16 +3,12 @@ extern crate common;
 use common::get_input;
 
 use std::collections::{HashSet, HashMap};
+use std::iter::FromIterator;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct Point {
     x: i32,
     y: i32,
-}
-
-struct Areas<T> {
-    area: Vec<T>,
-    front: Vec<T>
 }
 
 impl Point {
@@ -34,44 +30,60 @@ impl Point {
             .map(|p| self.add(p))
             .collect()
     }
+
+    fn find_closest<'a>(&self, points: &'a Vec<Point>) -> Option<&'a Point> {
+        let mut points_iter = points.into_iter();
+        let mut result = Some(points_iter.next().unwrap());
+        let mut min_distance = self.distance(&result.unwrap());
+        for point in points_iter {
+            if self.distance(&point) < min_distance {
+                min_distance = self.distance(&point);
+                result = Some(point);
+            } else if self.distance(&point) == min_distance && result != None {
+                result = None;
+            }
+        }
+        return result;
+    }
 }
 
 fn part1(points: &Vec<Point>) -> u32 {
-    let mut seen: HashSet<&Point> = HashSet::new();
-    let mut areas: HashMap<&Point, Areas<&Point>> = HashMap::new();
+    let mut enclosed: HashMap<&Point, HashSet<Point>> = HashMap::new();
+    let mut boundaries: HashMap<&Point, HashSet<Point>> = HashMap::new();
     let mut max_d: Option<i32> = None;
     for point in points {
-        areas.insert(point, Areas { area: Vec::new(), front: vec![point]});
+        enclosed.insert(point, HashSet::new());
+        boundaries.insert(point, HashSet::from_iter(vec![point.clone()]));
         for q in points {
             if max_d == None || point.distance(q) > max_d.unwrap() {
                 max_d = Some(point.distance(q));
             }
         }
     };
+    let mut seen: HashSet<Point> = HashSet::new();
     for _ in 0..(max_d.unwrap()/2) {
-        for area in areas.values_mut() {
-            for point in area.front.to_vec() {
+        for boundary in boundaries.values_mut() {
+            let mut new_boundary = HashSet::new();
+            for point in boundary.iter() {
                 if seen.contains(point) {
-                    continue
+                    continue;
                 }
-                seen.insert(point);
-                let closest = areas.keys().fold((Vec::new(), 0), |mut acc, k| {
-                    let distance = k.distance(point);
-                    if acc.0.len() > 0 && acc.1 > distance {
-                        acc.0.clear();
-                    } 
-                    if acc.0.len() == 0 || acc.1 == distance {
-                        acc.0.push(k);
-                    }
-                    acc
-                });
-                if closest.0.len() == 1 {
-                    area.area.push(closest.0[0]);
+                seen.insert(point.clone());
+                if let Some(closest) = point.find_closest(points) {
+                    enclosed.get_mut(closest).unwrap().insert(point.clone());
+                }
+                for neighbor in point.surrounding() {
+                    new_boundary.insert(neighbor);
                 }
             }
+            *boundary = new_boundary;
         }
     }
-    unimplemented!()
+    enclosed.iter()
+        .filter(|(&k, _)| boundaries.get(k).unwrap().len() == 0)
+        .map(|(_, v)| v.len())
+        .max()
+        .unwrap() as u32
 }
 
 fn part2(input: &Vec<Point>) -> u32 {
