@@ -2,12 +2,17 @@ extern crate common;
 
 use common::get_input;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 struct Point {
     x: i32,
     y: i32,
+}
+
+struct Areas<T> {
+    area: Vec<T>,
+    front: Vec<T>
 }
 
 impl Point {
@@ -31,22 +36,38 @@ impl Point {
     }
 }
 
-fn part1(input: &Vec<Point>) -> u32 {
-    let max_d = input.iter()
-        .flat_map(|p| input.iter().map(move |q| p.distance(&q)))
-        .max()
-        .unwrap();
+fn part1(points: &Vec<Point>) -> u32 {
     let mut seen: HashSet<&Point> = HashSet::new();
-    let mut queue: &Vec<Point> = input.clone();
-    for count in 0..(max_d/2) {
-        let new_queue: &Vec<Point> = &Vec::new();
-        for p in queue {
-            if seen.contains(p) {
-                continue;
+    let mut areas: HashMap<&Point, Areas<&Point>> = HashMap::new();
+    let mut max_d: Option<i32> = None;
+    for point in points {
+        areas.insert(point, Areas { area: Vec::new(), front: vec![point]});
+        for q in points {
+            if max_d == None || point.distance(q) > max_d.unwrap() {
+                max_d = Some(point.distance(q));
             }
-            seen.insert(p);
-            
-            for r in input {
+        }
+    };
+    for _ in 0..(max_d.unwrap()/2) {
+        for area in areas.values_mut() {
+            for point in area.front.to_vec() {
+                if seen.contains(point) {
+                    continue
+                }
+                seen.insert(point);
+                let closest = areas.keys().fold((Vec::new(), 0), |mut acc, k| {
+                    let distance = k.distance(point);
+                    if acc.0.len() > 0 && acc.1 > distance {
+                        acc.0.clear();
+                    } 
+                    if acc.0.len() == 0 || acc.1 == distance {
+                        acc.0.push(k);
+                    }
+                    acc
+                });
+                if closest.0.len() == 1 {
+                    area.area.push(closest.0[0]);
+                }
             }
         }
     }
