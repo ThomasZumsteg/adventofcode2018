@@ -86,8 +86,29 @@ fn part1(points: &Vec<Point>) -> u32 {
         .unwrap() as u32
 }
 
-fn part2(input: &Vec<Point>) -> u32 {
-    unimplemented!()
+fn part2(records: &Vec<Point>) -> usize {
+    let limit: i32 = 10000;
+    let mut queue = records.clone();
+    let mut seen: HashSet<Point> = HashSet::new();
+    let mut area: HashSet<Point> = HashSet::new();
+    while !queue.is_empty() {
+        let point = queue.remove(0);
+        if seen.contains(&point) {
+            continue;
+        }
+        seen.insert(point.clone());
+
+        let dist: i32 = records.iter().map(|p| point.distance(p)).sum();
+        if limit <= dist {
+            continue;
+        }
+        area.insert(point.clone());
+
+        for neighbor in point.surrounding() {
+            queue.push(neighbor);
+        }
+    }
+    return area.len();
 }
 
 fn parse(lines: String) -> Vec<Point> {
