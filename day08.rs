@@ -36,8 +36,7 @@ impl Node {
         }
         let mut total = 0;
         for &n in &self.meta {
-            println!("{:?}, {:?}", n, self.children.get(1 + n as usize));
-            if let Some(child) = self.children.get(1 + n as usize) {
+            if let Some(child) = self.children.get(n as usize - 1) {
                 total += child.value();
             }
         }
