@@ -50,24 +50,28 @@ impl PointCloud {
         }
     }
 
-    fn max(&self) -> Point2d {
+    fn limits(&self) -> (Point2d, Point2d) {
+        (Point2d {
+            x: self.points.iter().map(|p| p.position.x).min().unwrap(),
+            y: self.points.iter().map(|p| p.position.y).min().unwrap(),
+        },
         Point2d {
             x: self.points.iter().map(|p| p.position.x).max().unwrap(),
             y: self.points.iter().map(|p| p.position.y).max().unwrap(),
-        }
-    }
-
-    fn min(&self) -> Point2d {
-        Point2d {
-            x: self.points.iter().map(|p| p.position.x).min().unwrap(),
-            y: self.points.iter().map(|p| p.position.y).min().unwrap(),
-        }
+        })
     }
 
     fn area(&self) -> usize {
-        let max = self.max();
-        let min = self.min();
+        let (min, max) = self.limits();
         ((max.x - min.x) * (max.y - min.y)) as usize
+    }
+
+    fn next(&self) -> PointCloud {
+        let mut next_step = HashSet::new();
+        for item in &self.points {
+            next_step.insert(item.step());
+        }
+        PointCloud { points: next_step }
     }
 }
 
@@ -75,12 +79,12 @@ impl PointCloud {
 impl ToString for PointCloud {
     fn to_string(&self) -> String {
         let mut output: Vec<Vec<&str>> = Vec::new();
-        for r in self.min().y..self.max().y+1 {
+        let (min, max) = self.limits();
+        let positions: HashSet<(isize, isize)> = self.points.iter().map(|p| (p.position.x, p.position.y)).collect();
+        for r in min.y..max.y+1 {
             let mut row = Vec::new();
-            for c in self.min().x..self.max().x+1 {
-                let this_char = if self.points
-                    .iter()
-                    .any(|p| p.position == Point2d { x: c, y: r }) { "#" } else { " " };
+            for c in min.x..max.x+1 {
+                let this_char = if positions.contains(&(c, r)) { "#" } else { " " };
                 row.push(this_char);
             }
             output.push(row);
@@ -89,36 +93,31 @@ impl ToString for PointCloud {
     }
 }
 
-
-impl Iterator for &PointCloud {
-    type Item = PointCloud;
-
-    fn next(&mut self) -> Option<PointCloud> {
-        let mut next_step = HashSet::new();
-        for item in &self.points {
-            next_step.insert(item.step());
-        }
-        Some(PointCloud { points: next_step })
-    }
-}
-
 fn part1(input: &Input) -> String {
     let points = PointCloud::new(input.iter());
     let mut last = points.clone();
-    let mut count = 0;
-    for this in &points {
-        count += 1;
-        println!("{}", count);
+    loop {
+        let this = last.next();
         if last.area() < this.area() {
             break
         }
-        last = this.clone();
+        last = this;
     }
     last.to_string()
 }
 
-fn part2(input: &Input) -> String {
-    unimplemented!()
+fn part2(input: &Input) -> usize {
+    let points = PointCloud::new(input.iter());
+    let mut last = points.clone();
+    let mut count = 0;
+    loop {
+        let this = last.next();
+        if last.area() < this.area() {
+            return count
+        }
+        count += 1;
+        last = this;
+    }
 }
 
 fn parse(input: String) -> Input {
