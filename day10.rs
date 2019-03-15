@@ -2,24 +2,26 @@ extern crate common;
 
 use regex::Regex;
 use std::ops::Add;
-use std::cmp::{max, min};
 use std::collections::HashSet;
 
 type Input = Vec<Point>;
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct Point {
     position: Point2d,
     velocity: Point2d,
 }
 
 impl Point {
-    fn step(&mut self) {
-        self.position = &self.position + &self.velocity;
+    fn step(&self) -> Point {
+         Point {
+             position: &self.position + &self.velocity,
+             velocity: self.velocity.clone()
+         }
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct Point2d {
     x: isize,
     y: isize,
@@ -35,57 +37,84 @@ impl Add for &Point2d {
     }
 }
 
-fn area(upper_right: &Point2d, lower_left: &Point2d) -> usize {
-    (upper_right.y - lower_left.y + upper_right.x - lower_left.x) as usize
+#[derive(Debug, Clone)]
+struct PointCloud {
+    points: HashSet<Point>
+}
+
+impl PointCloud {
+    fn new<'a, I>(items: I) -> PointCloud
+        where I: Iterator<Item=&'a Point> {
+        PointCloud {
+            points: items.map(|p| p.clone()).collect()
+        }
+    }
+
+    fn max(&self) -> Point2d {
+        Point2d {
+            x: self.points.iter().map(|p| p.position.x).max().unwrap(),
+            y: self.points.iter().map(|p| p.position.y).max().unwrap(),
+        }
+    }
+
+    fn min(&self) -> Point2d {
+        Point2d {
+            x: self.points.iter().map(|p| p.position.x).min().unwrap(),
+            y: self.points.iter().map(|p| p.position.y).min().unwrap(),
+        }
+    }
+
+    fn area(&self) -> usize {
+        let max = self.max();
+        let min = self.min();
+        ((max.x - min.x) * (max.y - min.y)) as usize
+    }
 }
 
 
-fn part1(input: &Input) -> String {
-    let mut points: Input = input.iter().map(|i| i.clone()).collect();
-    let mut last_area: Option<(Point2d, Point2d)> = None;
-    let mut point_map: HashSet<(isize, isize)> = HashSet::new();
-    loop {
-        point_map.clear();
-        let mut upper_right: Option<Point2d> = None;
-        let mut lower_left: Option<Point2d> = None;
-        for point in points.iter_mut() {
-            point_map.insert((point.position.x, point.position.y));
-            point.step();
-            if let Some(position) = upper_right.as_mut() {
-                *position = Point2d {
-                    x: max(position.x, point.position.x),
-                    y: max(position.y, point.position.y),
-                }
-            } else {
-                upper_right = Some(point.position.clone());
+impl ToString for PointCloud {
+    fn to_string(&self) -> String {
+        let mut output: Vec<Vec<&str>> = Vec::new();
+        for r in self.min().y..self.max().y+1 {
+            let mut row = Vec::new();
+            for c in self.min().x..self.max().x+1 {
+                let this_char = if self.points
+                    .iter()
+                    .any(|p| p.position == Point2d { x: c, y: r }) { "#" } else { " " };
+                row.push(this_char);
             }
-            if let Some(position) = lower_left.as_mut() {
-                *position = Point2d {
-                    x: min(position.x, point.position.x),
-                    y: min(position.y, point.position.y),
-                }
-            } else {
-                lower_left = Some(point.position.clone());
-            }
+            output.push(row);
         }
-        
-        if let Some(last) = last_area.as_ref() {
-            if area(&last.0, &last.1) < area(upper_right.as_ref().unwrap(), lower_left.as_ref().unwrap()) {
-
-                let mut output: Vec<Vec<&str>> = Vec::new();
-                for r in last.1.y..last.0.y+1 {
-                    let mut row = Vec::new();
-                    for c in last.1.x..last.0.x+1 {
-                        row.push(if point_map.contains(&(c, r)) { "#" } else { " " });
-                    }
-                    output.push(row);
-                }
-                return output.iter().map(|row| format!("\n{}", row.join(""))).collect::<String>()
-            }
-        }
-        last_area = Some((upper_right.unwrap(), lower_left.unwrap()));
+        return output.iter().map(|row| format!("\n{}", row.join(""))).collect::<String>()
     }
-    unimplemented!()
+}
+
+
+impl Iterator for &PointCloud {
+    type Item = PointCloud;
+
+    fn next(&mut self) -> Option<PointCloud> {
+        let mut next_step = HashSet::new();
+        for item in &self.points {
+            next_step.insert(item.step());
+        }
+        Some(PointCloud { points: next_step })
+    }
+}
+
+fn part1(input: &Input) -> String {
+    let points = PointCloud::new(input.iter());
+    let mut last = points.clone();
+    let mut count = 0;
+    for this in &points {
+        count += 1;
+        println!("{}", count);
+        if last.area() < this.area() {
+            break
+        }
+        last = this.clone();
+    }
+    last.to_string()
 }
 
 fn part2(input: &Input) -> String {
