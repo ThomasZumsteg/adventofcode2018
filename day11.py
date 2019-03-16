@@ -47,6 +47,6 @@ def parse(line):
     return Record(*[int(g) for g in m.groups()])
 
 if __name__ == '__main__':
-    LINES = 5034
+    LINES = int(get_input(11, 2018))
     print("Part 1: {}".format(part1(LINES)))
     print("Part 2: {}".format(part2(LINES)))
