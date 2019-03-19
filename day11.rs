@@ -4,29 +4,52 @@ use std::cmp::min;
 
 type Input = isize;
 
-fn part1(input: &Input) -> String {
-    let mut cells = [[0; 299]; 299];
-    for (row, y) in cells.iter_mut().zip(1..) {
-        for (cell, x) in row.iter_mut().zip(1..) {
-            let rack_id = x + 10;
-            *cell = ((((rack_id * y + input) * rack_id) / 100) % 10) - 5;
+fn make_cells(size: usize, input: isize) -> Vec<Vec<isize>> {
+    let mut cells = vec![vec![0; size]; size];
+    for y in 0..size {
+        for x in 0..size {
+            let rack_id = (x as isize) + 11;
+            let mut value = ((((rack_id * (y as isize + 1) + input) * rack_id) / 100) % 10) - 5;
+            if y > 0 {
+                value += cells[y-1][x];
+            }
+            if x > 0 {
+                value += cells[y][x-1];
+            }
+            if x > 0 && y > 0 {
+                value -= cells[y-1][x-1];
+            }
+            cells[y][x] = value;
         }
     }
+    cells
+}
+
+fn value(cells: &Vec<Vec<isize>>, size: (usize, usize, usize)) -> isize {
+    let (x, y, z) = size;
+    let mut this = cells[y+z+1][x+z+1];
+    if y > 0 {
+        this -= cells[y][x+z+1];
+    }
+    if x > 0 {
+        this -= cells[y+z+1][x];
+    }
+    if x > 0 && y > 0 {
+        this += cells[y][x];
+    }
+    this
+}
+
+fn part1(input: &Input) -> String {
+    let cells = make_cells(300, *input);
     let mut max: Option<isize> = None;
     let mut upper_left: Option<String> = None;
-    for y in 0..(cells.len() - 2) {
-        for x in 0..(cells[y].len() - 2) {
-            let this: isize = cells[y..y+3].into_iter()
-                .flat_map(|row| row[x..x+3].into_iter())
-                .sum();
-            if let Some(current) = max {
-                if current < this {
-                    max = Some(this);
-                    upper_left = Some(format!("{},{}", x+1, y+1).to_string());
-                }
-            } else {
+    for y in 0..(300 - 3) {
+        for x in 0..(300 - 3) {
+            let this = value(&cells, (x, y, 3-1));
+            if max == None || max.unwrap() < this {
                 max = Some(this);
-                upper_left = Some(format!("{},{}", x+1, y+1).to_string());
+                upper_left = Some(format!("{},{}", x+2, y+2).to_string());
             }
         }
     };
@@ -34,53 +57,16 @@ fn part1(input: &Input) -> String {
 }
 
 fn part2(input: &Input) -> String {
-    let mut cells = [[0; 300]; 300];
-    for y in 1usize..300 {
-        for x in 1usize..300 {
-            let rack_id = (x as isize) + 10;
-            let mut value = ((((rack_id * (y as isize) + input) * rack_id) / 100) % 10) - 5;
-            if y > 1 {
-                value += cells[y-2][x-1];
-            }
-            if x > 1 {
-                value += cells[y-1][x-2];
-            }
-            if x > 1 && y > 1 {
-                value -= cells[y-2][x-2];
-            }
-            cells[y-1][x-1] = value;
-        }
-    }
+    let cells = make_cells(300, *input);
     let mut max: Option<isize> = None;
     let mut square: Option<String> = None;
-    for y in 1usize..300 {
-        for x in 1usize..300 {
-            for z in 1usize..min(301-x, 301-y) {
-                let mut this = cells[y-2+z][x-2+z];
-                print!("({}, {}, {}) ", x, y, z);
-                print!("(cells[{}][{}] = {})", y-2+z, x-2+z, cells[y-2+z][x-2+z]);
-
-                if y > 1 && x > 1 {
-                    this += cells[y-2][x-2];
-                    print!(" + (cells[{}][{}] = {})", y-2, x-2, cells[y-2][x-2]);
-                }
-                if y > 1 {
-                    this -= cells[y-2][x-2+z];
-                    print!(" - (cells[{}][{}] = {})", y-1+z-1, x-2, cells[y-2+z][x-2]);
-                }
-                if x > 1{
-                    this -= cells[y-2+z][x-2];
-                    print!(" - (cells[{}][{}] = {})", y-2, x-2+z, cells[y-2][x-2+z]);
-                }
-                print!(" = {}\n", this);
-                if let Some(current) = max {
-                    if current < this {
-                        max = Some(this);
-                        square = Some(format!("{},{},{}", x, y, z));
-                    }
-                } else {
+    for y in 0..300 {
+        for x in 0..300 {
+            for z in 0..min(300-x-1, 300-y-1) {
+                let this = value(&cells, (x, y, z));
+                if max == None || max.unwrap() < this {
                     max = Some(this);
-                    square = Some(format!("{},{},{}", x, y, z));
+                    square = Some(format!("{},{},{}", x+2, y+2, z+1));
                 }
             }
         }
