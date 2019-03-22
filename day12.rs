@@ -30,7 +30,12 @@ impl Pots {
     }
 
     fn max(&self) -> isize {
-        *self.slots.keys().max().unwrap()
+        *self.slots.keys().filter(|i| {
+            match self.slots.get(&i) {
+                Some('#') => true,
+                _ => false
+            }
+        }).max().unwrap()
     }
 }
 
@@ -46,17 +51,16 @@ impl Pots {
 
 impl ToString for Pots {
     fn to_string(&self) -> String {
-        (self.min()..self.max()).map(|i| self.slots.get(&i).unwrap_or(&'.')).collect()
+        (self.min()..self.max()+1).map(|i| self.slots.get(&i).unwrap_or(&'.')).collect()
     }
 }
 
 fn part1(start: &Pots) -> isize {
     let mut pots = start.clone();
     for _ in 0..20 {
-        println!("{}", pots.to_string());
         pots.next();
     }
-    (pots.min()..pots.max()).filter_map(|i| {
+    (pots.min()..pots.max()+1).filter_map(|i| {
         match pots.slots.get(&i) {
             Some('#') => Some(i),
             _ => None
@@ -64,8 +68,21 @@ fn part1(start: &Pots) -> isize {
     }).sum()
 }
 
-fn part2(pots: &Pots) -> usize {
-    unimplemented!()
+fn part2(start: &Pots) -> isize {
+    let mut pots = start.clone();
+    let mut countdown: usize = 50000000000;
+    let mut prev: Option<String> = None;
+    while countdown > 0 && prev != Some(pots.to_string()) {
+        prev = Some(pots.to_string());
+        pots.next();
+        countdown -= 1;
+    }
+    (pots.min()..pots.max()+1).filter_map(|i| {
+        match pots.slots.get(&i) {
+            Some('#') => Some(i + countdown as isize),
+            _ => None
+        }
+    }).sum()
 }
 
 fn parse(input: String) -> Pots {
