@@ -1,6 +1,7 @@
 use common::get_input;
 
 use std::collections::HashMap;
+use std::convert::Into;
 use std::ops::Add;
 
 macro_rules! map(
@@ -33,6 +34,17 @@ impl Add for &Point {
 struct Cart {
     location: Point,
     heading: Point,
+    turns: usize,
+}
+
+impl Cart {
+    fn turn_left(&self) -> Point {
+        unimplemented!()
+    }
+
+    fn turn_right(&self) -> Point {
+        unimplemented!()
+    }
 }
 
 #[derive(Clone)]
@@ -46,6 +58,27 @@ impl Input {
         let mut collections = Vec::new();
         for cart in self.carts.iter_mut() {
             cart.location = &cart.location + &cart.heading;
+            let track = self.track.get(&cart.location).unwrap();
+            cart.heading = match (track, (cart.heading.x, cart.heading.y)) {
+                ('/', (0, -1)) => Point {x:1, y:0},
+                ('/', (-1, 0)) => Point {x:0, y:1},
+                ('/', (0, 1)) => Point {x:-1, y:0},
+                ('/', (1, 0)) => Point {x:0, y:-1},
+                ('\\', (0, -1)) => Point {x:-1, y:0},
+                ('\\', (-1, 0)) => Point {x:0, y:-1},
+                ('\\', (0, 1)) => Point {x:1, y:0},
+                ('\\', (1, 0)) => Point {x:0, y:1},
+                ('+', _) => {
+                    cart.turns += 1;
+                    match (cart.turns % 3) {
+                        0 => cart.turn_right(),
+                        1 => cart.turn_left(),
+                        2 => cart.heading.clone(),
+                        _ => panic!("Never happens")
+                    }
+                }
+                _ => cart.heading.clone(),
+            }
         }
         if collections.is_empty() {
             None
@@ -83,7 +116,8 @@ fn parse(lines: String) -> Input {
                 track.insert(Point { x: c as isize, y: r as isize }, *segment);
                 carts.push(Cart { 
                     location: Point { x: c as isize, y: r as isize },
-                    heading: heading.clone()
+                    heading: heading.clone(),
+                    turns: 0
                 });
             } else if segment != ' '{
                 track.insert(Point { x: c as isize, y: r as isize }, segment);
