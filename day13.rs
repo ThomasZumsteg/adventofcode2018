@@ -1,7 +1,7 @@
 use common::get_input;
 
-use std::collections::HashMap;
-use std::convert::Into;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
 use std::ops::Add;
 
 macro_rules! map(
@@ -22,6 +22,12 @@ struct Point {
     y: isize,
 }
 
+impl fmt::Debug for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
+    }
+}
+
 impl Add for &Point {
     type Output = Point;
 
@@ -30,7 +36,7 @@ impl Add for &Point {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Cart {
     location: Point,
     heading: Point,
@@ -38,12 +44,18 @@ struct Cart {
 }
 
 impl Cart {
-    fn turn_left(&self) -> Point {
-        unimplemented!()
+    fn turn_left(&mut self) -> Point {
+        Point {
+            x: self.heading.y,
+            y: -self.heading.x,
+        }
     }
 
-    fn turn_right(&self) -> Point {
-        unimplemented!()
+    fn turn_right(&mut self) -> Point {
+        Point {
+            x: -self.heading.y,
+            y: self.heading.x,
+        }
     }
 }
 
@@ -54,11 +66,21 @@ struct Input {
 }
 
 impl Input {
-    fn step(&mut self) -> Option<Vec<Point>> {
-        let mut collections = Vec::new();
-        for cart in self.carts.iter_mut() {
+    fn step(&mut self) -> Option<Vec<&Cart>> {
+        let mut collisions = Vec::new();
+        let mut occupied: HashMap<Point, &Cart> = HashMap::new();
+        for (i, cart) in self.carts.iter_mut().enumerate() {
+            if occupied.insert(cart.location.clone(), cart).is_none() {
+                collisions.push(&*cart);
+                continue
+            }
             cart.location = &cart.location + &cart.heading;
+            if occupied.insert(cart.location.clone(), cart).is_none() {
+                collisions.push(&*cart);
+                continue
+            }
             let track = self.track.get(&cart.location).unwrap();
+            println!("{} {} {:?}", i, track, cart);
             cart.heading = match (track, (cart.heading.x, cart.heading.y)) {
                 ('/', (0, -1)) => Point {x:1, y:0},
                 ('/', (-1, 0)) => Point {x:0, y:1},
@@ -70,7 +92,7 @@ impl Input {
                 ('\\', (1, 0)) => Point {x:0, y:1},
                 ('+', _) => {
                     cart.turns += 1;
-                    match (cart.turns % 3) {
+                    match cart.turns % 3 {
                         0 => cart.turn_right(),
                         1 => cart.turn_left(),
                         2 => cart.heading.clone(),
@@ -80,10 +102,10 @@ impl Input {
                 _ => cart.heading.clone(),
             }
         }
-        if collections.is_empty() {
+        if collisions.is_empty() {
             None
         } else {
-            Some(collections)
+            Some(collisions)
         }
     }
 }
@@ -92,7 +114,7 @@ fn part1(input: &Input) -> String {
     let mut state: Input = (*input).clone();
     loop {
         if let Some(collisions) = state.step() {
-            return format!("{},{}", collisions[0].x, collisions[0].y)
+            return format!("{},{}", collisions[0].location.x, collisions[0].location.y)
         }
     }
 }
@@ -107,8 +129,8 @@ fn parse(lines: String) -> Input {
     let cart_map = map!{
         '>': ('-', Point { x: 1, y: 0 }),
         '<': ('-', Point { x: -1, y: 0}),
-        'v': ('|', Point { x: 0, y: -1}),
-        '^': ('|', Point { x: 0, y: 1})
+        'v': ('|', Point { x: 0, y: 1}),
+        '^': ('|', Point { x: 0, y: -1})
     };
     for (r, line) in lines.trim().split('\n').enumerate() {
         for (c, segment) in line.chars().enumerate() {
