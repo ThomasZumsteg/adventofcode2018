@@ -36,7 +36,7 @@ impl Add for &Point {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Cart {
     location: Point,
     heading: Point,
@@ -66,17 +66,19 @@ struct Input {
 }
 
 impl Input {
-    fn step(&mut self) -> Option<Vec<&Cart>> {
+    fn step(&mut self) -> Option<Vec<Cart>> {
         let mut collisions = Vec::new();
-        let mut occupied: HashMap<Point, &Cart> = HashMap::new();
+        let mut occupied: HashMap<Point, Cart> = HashMap::new();
         for (i, cart) in self.carts.iter_mut().enumerate() {
-            if occupied.insert(cart.location.clone(), cart).is_none() {
-                collisions.push(&*cart);
+            if let Some(hit) = occupied.insert(cart.location.clone(), cart.clone()) {
+                collisions.push(cart.clone());
+                collisions.push(hit);
                 continue
             }
             cart.location = &cart.location + &cart.heading;
-            if occupied.insert(cart.location.clone(), cart).is_none() {
-                collisions.push(&*cart);
+            if let Some(hit) = occupied.insert(cart.location.clone(), cart.clone()) {
+                collisions.push(cart.clone());
+                collisions.push(hit);
                 continue
             }
             let track = self.track.get(&cart.location).unwrap();
@@ -105,6 +107,10 @@ impl Input {
         if collisions.is_empty() {
             None
         } else {
+            self.carts = self.carts.iter()
+                .cloned()
+                .filter(|c| !collisions.contains(c))
+                .collect();
             Some(collisions)
         }
     }
@@ -120,7 +126,11 @@ fn part1(input: &Input) -> String {
 }
 
 fn part2(input: &Input) -> String {
-    unimplemented!()
+    let mut state: Input = (*input).clone();
+    while input.carts.len() > 1 {
+        state.step();
+    }
+    return format!("{},{}", input.carts[0].location.x, input.carts[0].location.y)
 }
 
 fn parse(lines: String) -> Input {
