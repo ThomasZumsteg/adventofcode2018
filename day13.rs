@@ -41,6 +41,7 @@ struct Cart {
     location: Point,
     heading: Point,
     turns: usize,
+    hit: bool,
 }
 
 impl Cart {
@@ -67,22 +68,21 @@ struct Input {
 
 impl Input {
     fn step(&mut self) -> Option<Vec<Cart>> {
-        let mut collisions = Vec::new();
-        let mut occupied: HashMap<Point, Cart> = HashMap::new();
+        let mut occupied: HashMap<Point, &Cart> = HashMap::new();
         for (i, cart) in self.carts.iter_mut().enumerate() {
-            if let Some(hit) = occupied.insert(cart.location.clone(), cart.clone()) {
-                collisions.push(cart.clone());
-                collisions.push(hit);
+            if let Some(hit) = occupied.insert(cart.location.clone(), &cart) {
+                cart.hit = true;
+                hit.hit = true;
                 continue
             }
             cart.location = &cart.location + &cart.heading;
-            if let Some(hit) = occupied.insert(cart.location.clone(), cart.clone()) {
-                collisions.push(cart.clone());
-                collisions.push(hit);
+            if let Some(hit) = occupied.insert(cart.location.clone(), &cart) {
+                cart.hit = true;
+                hit.hit = true;
                 continue
             }
             let track = self.track.get(&cart.location).unwrap();
-            println!("{} {} {:?}", i, track, cart);
+            // println!("{} {} {:?}", i, track, cart);
             cart.heading = match (track, (cart.heading.x, cart.heading.y)) {
                 ('/', (0, -1)) => Point {x:1, y:0},
                 ('/', (-1, 0)) => Point {x:0, y:1},
@@ -104,13 +104,10 @@ impl Input {
                 _ => cart.heading.clone(),
             }
         }
+        let collisions: Vec<Cart> = self.carts.iter().cloned().filter(|c| c.hit).collect();
         if collisions.is_empty() {
             None
         } else {
-            self.carts = self.carts.iter()
-                .cloned()
-                .filter(|c| !collisions.contains(c))
-                .collect();
             Some(collisions)
         }
     }
@@ -127,8 +124,11 @@ fn part1(input: &Input) -> String {
 
 fn part2(input: &Input) -> String {
     let mut state: Input = (*input).clone();
-    while input.carts.len() > 1 {
-        state.step();
+    while state.carts.len() > 1 {
+        if let Some(hits) = state.step() {
+            println!("{}: {:?}", state.carts.len(), hits);
+        }
+        
     }
     return format!("{},{}", input.carts[0].location.x, input.carts[0].location.y)
 }
@@ -142,14 +142,15 @@ fn parse(lines: String) -> Input {
         'v': ('|', Point { x: 0, y: 1}),
         '^': ('|', Point { x: 0, y: -1})
     };
-    for (r, line) in lines.trim().split('\n').enumerate() {
+    for (r, line) in lines.split('\n').enumerate() {
         for (c, segment) in line.chars().enumerate() {
             if let Some((segment, heading)) = cart_map.get(&segment) {
                 track.insert(Point { x: c as isize, y: r as isize }, *segment);
                 carts.push(Cart { 
                     location: Point { x: c as isize, y: r as isize },
                     heading: heading.clone(),
-                    turns: 0
+                    turns: 0,
+                    hit: false,
                 });
             } else if segment != ' '{
                 track.insert(Point { x: c as isize, y: r as isize }, segment);
