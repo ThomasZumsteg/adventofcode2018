@@ -70,6 +70,7 @@ impl Input {
     fn step(&mut self) -> Option<Vec<Cart>> {
         let mut occupied: HashMap<Point, &Cart> = HashMap::new();
         for (i, cart) in self.carts.iter_mut().enumerate() {
+
             if let Some(hit) = occupied.insert(cart.location.clone(), &cart) {
                 cart.hit = true;
                 hit.hit = true;
