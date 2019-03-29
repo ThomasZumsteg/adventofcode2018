@@ -36,12 +36,11 @@ impl Add for &Point {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 struct Cart {
     location: Point,
     heading: Point,
     turns: usize,
-    hit: bool,
 }
 
 impl Cart {
@@ -63,25 +62,20 @@ impl Cart {
 #[derive(Clone)]
 struct Input {
     track: HashMap<Point, char>,
-    carts: Vec<Cart>
+    carts: HashSet<Cart>
 }
 
 impl Input {
-    fn step(&mut self) -> Option<Vec<Cart>> {
-        let mut occupied: HashMap<Point, &Cart> = HashMap::new();
-        for (i, cart) in self.carts.iter_mut().enumerate() {
+    fn step(&mut self) -> HashSet<Point> {
+        let positions: HashMap<Point, Vec<&Cart>> = HashMap::new();
+        for (i, cart) in self.carts.iter().enumerate() {
+            let move_to = &cart.location + &cart.heading;
+            if let Some(carts) = positions.get(&cart.location) {
+                carts.push(&cart);
+            } 
+            // positions.get(&move_to).unwrap_or(vec![]).push(&cart);
+            cart.location = move_to;
 
-            if let Some(hit) = occupied.insert(cart.location.clone(), &cart) {
-                cart.hit = true;
-                hit.hit = true;
-                continue
-            }
-            cart.location = &cart.location + &cart.heading;
-            if let Some(hit) = occupied.insert(cart.location.clone(), &cart) {
-                cart.hit = true;
-                hit.hit = true;
-                continue
-            }
             let track = self.track.get(&cart.location).unwrap();
             // println!("{} {} {:?}", i, track, cart);
             cart.heading = match (track, (cart.heading.x, cart.heading.y)) {
@@ -105,20 +99,24 @@ impl Input {
                 _ => cart.heading.clone(),
             }
         }
-        let collisions: Vec<Cart> = self.carts.iter().cloned().filter(|c| c.hit).collect();
-        if collisions.is_empty() {
-            None
-        } else {
-            Some(collisions)
+        let collisions = HashSet::new();
+        for (_, carts) in positions.drain() {
+            for cart in carts.drain(..) {
+                if let Some(taken) = self.carts.take(cart) {
+                    collisions.insert(taken.location);
+                }
+            }
         }
+        collisions
     }
 }
 
 fn part1(input: &Input) -> String {
     let mut state: Input = (*input).clone();
     loop {
-        if let Some(collisions) = state.step() {
-            return format!("{},{}", collisions[0].location.x, collisions[0].location.y)
+        let collisions = state.step();
+        if let Some(p) = collisions.iter().next() {
+            return format!("{},{}", p.x, p.y)
         }
     }
 }
@@ -126,16 +124,15 @@ fn part1(input: &Input) -> String {
 fn part2(input: &Input) -> String {
     let mut state: Input = (*input).clone();
     while state.carts.len() > 1 {
-        if let Some(hits) = state.step() {
-            println!("{}: {:?}", state.carts.len(), hits);
-        }
-        
+        let hits = state.step();
+        println!("{}: {:?}", state.carts.len(), hits);
     }
-    return format!("{},{}", input.carts[0].location.x, input.carts[0].location.y)
+    let p = state.carts.iter().next().unwrap();
+    format!("{},{}", p.location.x, p.location.y)
 }
 
 fn parse(lines: String) -> Input {
-    let mut carts: Vec<Cart> = Vec::new();
+    let mut carts: HashSet<Cart> = HashSet::new();
     let mut track: HashMap<Point, char> = HashMap::new();
     let cart_map = map!{
         '>': ('-', Point { x: 1, y: 0 }),
@@ -147,11 +144,10 @@ fn parse(lines: String) -> Input {
         for (c, segment) in line.chars().enumerate() {
             if let Some((segment, heading)) = cart_map.get(&segment) {
                 track.insert(Point { x: c as isize, y: r as isize }, *segment);
-                carts.push(Cart { 
+                carts.insert(Cart { 
                     location: Point { x: c as isize, y: r as isize },
                     heading: heading.clone(),
                     turns: 0,
-                    hit: false,
                 });
             } else if segment != ' '{
                 track.insert(Point { x: c as isize, y: r as isize }, segment);
