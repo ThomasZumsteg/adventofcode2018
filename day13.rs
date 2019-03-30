@@ -2,6 +2,7 @@ use common::get_input;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::cell::RefCell;
 use std::ops::Add;
 
 macro_rules! map(
@@ -44,17 +45,45 @@ struct Cart {
 }
 
 impl Cart {
-    fn turn_left(&mut self) -> Point {
-        Point {
+    fn turn_left(&mut self) {
+        self.heading = Point {
             x: self.heading.y,
             y: -self.heading.x,
-        }
+        };
     }
 
-    fn turn_right(&mut self) -> Point {
-        Point {
+    fn turn_right(&mut self) {
+        self.heading = Point {
             x: -self.heading.y,
             y: self.heading.x,
+        };
+    }
+
+    fn move_forward(&mut self) {
+        self.location = &self.location + &self.heading;
+    }
+
+    fn step(&mut self, track: &char) {
+        self.move_forward();
+        match (track, (self.heading.x, self.heading.y)) {
+            ('/', (0, -1)) => self.turn_right(),
+            ('/', (-1, 0)) => self.turn_left(),
+            ('/', (0, 1)) => self.turn_right(),
+            ('/', (1, 0)) => self.turn_left(),
+            ('\\', (0, -1)) => self.turn_left(),
+            ('\\', (-1, 0)) => self.turn_right(),
+            ('\\', (0, 1)) => self.turn_left(),
+            ('\\', (1, 0)) => self.turn_right(),
+            ('+', _) => {
+                self.turns += 1;
+                match self.turns % 3 {
+                    0 => self.turn_right(),
+                    1 => self.turn_left(),
+                    2 => (),
+                    _ => panic!("Never happens")
+                }
+            },
+            (_, _) => panic!("Also never happens"),
         }
     }
 }
@@ -62,52 +91,39 @@ impl Cart {
 #[derive(Clone)]
 struct Input {
     track: HashMap<Point, char>,
-    carts: HashSet<Cart>
+    carts: Vec<RefCell<Cart>>
 }
 
 impl Input {
     fn step(&mut self) -> HashSet<Point> {
-        let positions: HashMap<Point, Vec<&Cart>> = HashMap::new();
-        for (i, cart) in self.carts.iter().enumerate() {
-            let move_to = &cart.location + &cart.heading;
-            if let Some(carts) = positions.get(&cart.location) {
-                carts.push(&cart);
-            } 
-            // positions.get(&move_to).unwrap_or(vec![]).push(&cart);
-            cart.location = move_to;
+        let mut positions: HashMap<Point, Vec<&RefCell<Cart>>> = HashMap::new();
+        for cell in self.carts.iter() {
+            let mut cart = cell.borrow_mut();
+            if let Some(carts) = positions.get_mut(&cart.location) {
+                carts.push(cell);
+            } else {
+                positions.insert(cart.location.clone(), vec![cell]);
+            }
 
             let track = self.track.get(&cart.location).unwrap();
-            // println!("{} {} {:?}", i, track, cart);
-            cart.heading = match (track, (cart.heading.x, cart.heading.y)) {
-                ('/', (0, -1)) => Point {x:1, y:0},
-                ('/', (-1, 0)) => Point {x:0, y:1},
-                ('/', (0, 1)) => Point {x:-1, y:0},
-                ('/', (1, 0)) => Point {x:0, y:-1},
-                ('\\', (0, -1)) => Point {x:-1, y:0},
-                ('\\', (-1, 0)) => Point {x:0, y:-1},
-                ('\\', (0, 1)) => Point {x:1, y:0},
-                ('\\', (1, 0)) => Point {x:0, y:1},
-                ('+', _) => {
-                    cart.turns += 1;
-                    match cart.turns % 3 {
-                        0 => cart.turn_right(),
-                        1 => cart.turn_left(),
-                        2 => cart.heading.clone(),
-                        _ => panic!("Never happens")
-                    }
-                }
-                _ => cart.heading.clone(),
+            cart.step(track);
+
+            if let Some(carts) = positions.get_mut(&cart.location) {
+                carts.push(cell);
+            } else {
+                positions.insert(cart.location.clone(), vec![cell]);
             }
         }
-        let collisions = HashSet::new();
-        for (_, carts) in positions.drain() {
-            for cart in carts.drain(..) {
-                if let Some(taken) = self.carts.take(cart) {
-                    collisions.insert(taken.location);
+        let collisions = Vec::new();
+        for (position, carts) in positions.drain() {
+            if carts.len() > 2 {
+                collisions.push(position);
+                for cart in carts {
+                    self.carts.remove(cart);
                 }
             }
         }
-        collisions
+        unimplemented!()
     }
 }
 
@@ -127,12 +143,12 @@ fn part2(input: &Input) -> String {
         let hits = state.step();
         println!("{}: {:?}", state.carts.len(), hits);
     }
-    let p = state.carts.iter().next().unwrap();
+    let p = state.carts.iter().next().unwrap().borrow();
     format!("{},{}", p.location.x, p.location.y)
 }
 
 fn parse(lines: String) -> Input {
-    let mut carts: HashSet<Cart> = HashSet::new();
+    let mut carts: Vec<RefCell<Cart>> = Vec::new();
     let mut track: HashMap<Point, char> = HashMap::new();
     let cart_map = map!{
         '>': ('-', Point { x: 1, y: 0 }),
@@ -144,11 +160,11 @@ fn parse(lines: String) -> Input {
         for (c, segment) in line.chars().enumerate() {
             if let Some((segment, heading)) = cart_map.get(&segment) {
                 track.insert(Point { x: c as isize, y: r as isize }, *segment);
-                carts.insert(Cart { 
+                carts.push(RefCell::new(Cart { 
                     location: Point { x: c as isize, y: r as isize },
                     heading: heading.clone(),
                     turns: 0,
-                });
+                }));
             } else if segment != ' '{
                 track.insert(Point { x: c as isize, y: r as isize }, segment);
             }
