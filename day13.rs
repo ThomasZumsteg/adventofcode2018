@@ -96,34 +96,34 @@ struct Input {
 
 impl Input {
     fn step(&mut self) -> HashSet<Point> {
-        let mut positions: HashMap<Point, Vec<&RefCell<Cart>>> = HashMap::new();
+        let mut positions: HashMap<Point, Vec<RefCell<Cart>>> = HashMap::new();
         for cell in self.carts.iter() {
             let mut cart = cell.borrow_mut();
             if let Some(carts) = positions.get_mut(&cart.location) {
-                carts.push(cell);
+                carts.push(cell.clone());
             } else {
-                positions.insert(cart.location.clone(), vec![cell]);
+                positions.insert(cart.location.clone(), vec![cell.clone()]);
             }
 
             let track = self.track.get(&cart.location).unwrap();
             cart.step(track);
 
             if let Some(carts) = positions.get_mut(&cart.location) {
-                carts.push(cell);
+                carts.push(cell.clone());
             } else {
-                positions.insert(cart.location.clone(), vec![cell]);
+                positions.insert(cart.location.clone(), vec![cell.clone()]);
             }
         }
-        let collisions = Vec::new();
+        let mut collisions = HashSet::new();
         for (position, carts) in positions.drain() {
             if carts.len() > 2 {
-                collisions.push(position);
-                for cart in carts {
-                    self.carts.remove(cart);
-                }
+                collisions.insert(position);
+                self.carts.retain(
+                    |cart| !carts.iter().any(|c| c == cart)
+                )
             }
         }
-        unimplemented!()
+        collisions
     }
 }
 
