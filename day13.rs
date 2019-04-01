@@ -2,7 +2,6 @@ use common::get_input;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::cell::RefCell;
 use std::ops::Add;
 
 macro_rules! map(
@@ -23,6 +22,12 @@ struct Point {
     y: isize,
 }
 
+impl Point {
+    fn distance(&self, other: &Point) -> usize {
+        ((self.x - other.x).abs() + (self.y - other.y).abs()) as usize
+    }
+}
+
 impl fmt::Debug for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
@@ -37,11 +42,22 @@ impl Add for &Point {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 struct Cart {
     location: Point,
     heading: Point,
     turns: usize,
+}
+
+impl fmt::Debug for Cart {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut chars = HashMap::new();
+        chars.insert(Point { x: -1, y: 0 }, '<');
+        chars.insert(Point { x: 1, y: 0 }, '>');
+        chars.insert(Point { x: 0, y: -1 }, '^');
+        chars.insert(Point { x: 0, y: 1 }, 'v');
+        write!(f, "Cart({}, {:?})", chars.get(&self.heading).unwrap(), self.location)
+    }
 }
 
 impl Cart {
@@ -63,8 +79,7 @@ impl Cart {
         self.location = &self.location + &self.heading;
     }
 
-    fn step(&mut self, track: &char) {
-        self.move_forward();
+    fn turn(&mut self, track: &char) {
         match (track, (self.heading.x, self.heading.y)) {
             ('/', (0, -1)) => self.turn_right(),
             ('/', (-1, 0)) => self.turn_left(),
@@ -83,46 +98,45 @@ impl Cart {
                     _ => panic!("Never happens")
                 }
             },
-            (_, _) => panic!("Also never happens"),
+            (_, _) => (),
         }
+    }
+
+    fn collides_with(&self, carts: &Vec<Cart>) -> Option<Point> {
+        for cart in carts {
+            if self != cart && self.location.distance(&cart.location) == 0 {
+                return Some(self.location.clone())
+            }
+        }
+        None
     }
 }
 
 #[derive(Clone)]
 struct Input {
     track: HashMap<Point, char>,
-    carts: Vec<RefCell<Cart>>
+    carts: Vec<Cart>
 }
 
 impl Input {
     fn step(&mut self) -> HashSet<Point> {
-        let mut positions: HashMap<Point, Vec<RefCell<Cart>>> = HashMap::new();
-        for cell in self.carts.iter() {
-            let mut cart = cell.borrow_mut();
-            if let Some(carts) = positions.get_mut(&cart.location) {
-                carts.push(cell.clone());
-            } else {
-                positions.insert(cart.location.clone(), vec![cell.clone()]);
+        let mut collisions: HashSet<Point> = HashSet::new();
+        let mut next_carts: Vec<Cart> = Vec::new();
+        for mut cart in self.carts.clone().drain(..) {
+            if let Some(collison) = cart.collides_with(&self.carts) {
+                collisions.insert(collison);
+                continue;
             }
-
+            cart.move_forward();
             let track = self.track.get(&cart.location).unwrap();
-            cart.step(track);
-
-            if let Some(carts) = positions.get_mut(&cart.location) {
-                carts.push(cell.clone());
+            cart.turn(track);
+            if let Some(collison) = cart.collides_with(&self.carts) {
+                collisions.insert(collison);
             } else {
-                positions.insert(cart.location.clone(), vec![cell.clone()]);
+                next_carts.push(cart);
             }
         }
-        let mut collisions = HashSet::new();
-        for (position, carts) in positions.drain() {
-            if carts.len() > 2 {
-                collisions.insert(position);
-                self.carts.retain(
-                    |cart| !carts.iter().any(|c| c == cart)
-                )
-            }
-        }
+        self.carts = next_carts;
         collisions
     }
 }
@@ -141,14 +155,16 @@ fn part2(input: &Input) -> String {
     let mut state: Input = (*input).clone();
     while state.carts.len() > 1 {
         let hits = state.step();
-        println!("{}: {:?}", state.carts.len(), hits);
+        if 0 < hits.len() {
+            println!("{:?}", hits);
+        }
     }
-    let p = state.carts.iter().next().unwrap().borrow();
+    let p = state.carts.iter().next().unwrap();
     format!("{},{}", p.location.x, p.location.y)
 }
 
 fn parse(lines: String) -> Input {
-    let mut carts: Vec<RefCell<Cart>> = Vec::new();
+    let mut carts: Vec<Cart> = Vec::new();
     let mut track: HashMap<Point, char> = HashMap::new();
     let cart_map = map!{
         '>': ('-', Point { x: 1, y: 0 }),
@@ -160,11 +176,11 @@ fn parse(lines: String) -> Input {
         for (c, segment) in line.chars().enumerate() {
             if let Some((segment, heading)) = cart_map.get(&segment) {
                 track.insert(Point { x: c as isize, y: r as isize }, *segment);
-                carts.push(RefCell::new(Cart { 
+                carts.push(Cart { 
                     location: Point { x: c as isize, y: r as isize },
                     heading: heading.clone(),
                     turns: 0,
-                }));
+                });
             } else if segment != ' '{
                 track.insert(Point { x: c as isize, y: r as isize }, segment);
             }
