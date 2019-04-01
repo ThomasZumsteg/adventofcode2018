@@ -156,7 +156,8 @@ fn part2(input: &Input) -> String {
     while state.carts.len() > 1 {
         let hits = state.step();
         if 0 < hits.len() {
-            println!("{:?}", hits);
+            println!("{:?}: {}", hits, state.carts.len());
+            println!("{:?}", state.carts);
         }
     }
     let p = state.carts.iter().next().unwrap();

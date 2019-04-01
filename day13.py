@@ -98,7 +98,6 @@ def part2(track, carts):
             cart.turn(segment)
             for c in list(carts):
                 if c.collision(cart):
-                    print(f"{repr(cart)}")
                     carts.remove(c)
                     carts.remove(cart)
                     break
