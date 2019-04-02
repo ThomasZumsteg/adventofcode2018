@@ -1,6 +1,7 @@
 use common::get_input;
 
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 use std::fmt;
 use std::ops::Add;
 
@@ -120,24 +121,21 @@ struct Input {
 
 impl Input {
     fn step(&mut self) -> HashSet<Point> {
-        let mut collisions: HashSet<Point> = HashSet::new();
-        let mut next_carts: Vec<Cart> = Vec::new();
-        for mut cart in self.carts.clone().drain(..) {
-            if let Some(collison) = cart.collides_with(&self.carts) {
-                collisions.insert(collison);
-                continue;
+        let mut collisions: HashMap<Point, Vec<Rc<&Cart>>> = HashMap::new();
+        for cart in self.carts.iter().map(|c| Rc::new(c)) {
+            if let Some(carts) = collisions.get_mut(&cart.location) {
+                carts.push(cart.clone());
             }
-            cart.move_forward();
-            let track = self.track.get(&cart.location).unwrap();
-            cart.turn(track);
-            if let Some(collison) = cart.collides_with(&self.carts) {
-                collisions.insert(collison);
-            } else {
-                next_carts.push(cart);
+            if let Some(mut_cart) = cart.try_unwrap() {
+                mut_cart.move_forward();
+            // let track = self.track.get(&cart.location).unwrap();
+            // cart.turn(track);
+            }
+            if let Some(carts) = collisions.get_mut(&cart.location) {
+                carts.push(cart.clone());
             }
         }
-        self.carts = next_carts;
-        collisions
+        unimplemented!()
     }
 }
 
