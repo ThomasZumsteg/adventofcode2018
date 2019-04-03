@@ -1,6 +1,7 @@
 use common::get_input;
 
 use std::collections::{HashMap, HashSet};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::fmt;
 use std::ops::Add;
@@ -102,45 +103,58 @@ impl Cart {
             (_, _) => (),
         }
     }
-
-    fn collides_with(&self, carts: &Vec<Cart>) -> Option<Point> {
-        for cart in carts {
-            if self != cart && self.location.distance(&cart.location) == 0 {
-                return Some(self.location.clone())
-            }
-        }
-        None
-    }
 }
 
 #[derive(Clone)]
-struct Input {
+struct Track {
     track: HashMap<Point, char>,
-    carts: Vec<Cart>
+    carts: Vec<Rc<RefCell<Cart>>>
 }
 
-impl Input {
+impl Track {
     fn step(&mut self) -> HashSet<Point> {
-        let mut collisions: HashMap<Point, Vec<Rc<&Cart>>> = HashMap::new();
-        for cart in self.carts.iter().map(|c| Rc::new(c)) {
-            if let Some(carts) = collisions.get_mut(&cart.location) {
+        let mut collisions: HashMap<Point, Vec<Rc<RefCell<_>>>> = HashMap::new();
+        for cart in &self.carts {
+            if let Some(carts) = collisions.get_mut(&cart.borrow().location) {
                 carts.push(cart.clone());
+            } else {
+                collisions.insert(
+                    cart.borrow().location.clone(),
+                    vec![cart.clone()]
+                );
             }
-            if let Some(mut_cart) = cart.try_unwrap() {
-                mut_cart.move_forward();
-            // let track = self.track.get(&cart.location).unwrap();
-            // cart.turn(track);
+
+            {
+                cart.borrow_mut().move_forward();
+                let track = self.track.get(&cart.borrow().location).unwrap();
+                cart.borrow_mut().turn(track);
             }
-            if let Some(carts) = collisions.get_mut(&cart.location) {
+
+            if let Some(carts) = collisions.get_mut(&cart.borrow_mut().location) {
                 carts.push(cart.clone());
+            } else {
+                let key = cart.borrow().location.clone();
+                collisions.insert(
+                    key,
+                    vec![cart.clone()]
+                );
             }
         }
-        unimplemented!()
+        let mut intersection = HashSet::new();
+        println!("{:?}", collisions);
+        for (key, value) in collisions {
+            println!("{:?}", self.carts);
+            unimplemented!();
+        }
+        intersection
     }
 }
 
-fn part1(input: &Input) -> String {
-    let mut state: Input = (*input).clone();
+fn part1(track: &HashMap<Point, char>, carts: &Vec<Cart>) -> String {
+    let mut state = Track {
+        track: track.clone(),
+        carts: carts.iter().map(|c| Rc::new(RefCell::new(c.clone()))).collect(),
+    };
     loop {
         let collisions = state.step();
         if let Some(p) = collisions.iter().next() {
@@ -149,20 +163,20 @@ fn part1(input: &Input) -> String {
     }
 }
 
-fn part2(input: &Input) -> String {
-    let mut state: Input = (*input).clone();
-    while state.carts.len() > 1 {
-        let hits = state.step();
-        if 0 < hits.len() {
-            println!("{:?}: {}", hits, state.carts.len());
-            println!("{:?}", state.carts);
-        }
-    }
-    let p = state.carts.iter().next().unwrap();
-    format!("{},{}", p.location.x, p.location.y)
+fn part2(track: &HashMap<Point, char>, carts: &Vec<Cart>) -> String {
+    unimplemented!();
+    // while state.carts.len() > 1 {
+    //     let hits = state.step();
+    //     if 0 < hits.len() {
+    //         println!("{:?}: {}", hits, state.carts.len());
+    //         println!("{:?}", state.carts);
+    //     }
+    // }
+    // let p = state.carts.iter().next().unwrap();
+    // format!("{},{}", p.location.x, p.location.y)
 }
 
-fn parse(lines: String) -> Input {
+fn parse(lines: String) -> (HashMap<Point, char>, Vec<Cart>) {
     let mut carts: Vec<Cart> = Vec::new();
     let mut track: HashMap<Point, char> = HashMap::new();
     let cart_map = map!{
@@ -185,11 +199,11 @@ fn parse(lines: String) -> Input {
             }
         }
     }
-    Input{ track: track, carts: carts }
+    (track, carts)
 }
 
 fn main() {
-    let input = parse(get_input(13, 2018));
-    println!("Part 1: {}", part1(&input));
-    println!("Part 2: {}", part2(&input));
+    let (track, carts) = parse(get_input(13, 2018));
+    println!("Part 1: {}", part1(&track, &carts));
+    println!("Part 2: {}", part2(&track, &carts));
 }
