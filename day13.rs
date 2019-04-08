@@ -105,16 +105,18 @@ impl Cart {
     }
 }
 
+type CartRef = Rc<RefCell<Cart>>;
+
 #[derive(Clone)]
 struct Track {
     track: HashMap<Point, char>,
-    carts: Vec<Rc<RefCell<Cart>>>
+    carts: Vec<CartRef>
 }
 
 impl Track {
     fn step(&mut self) -> HashSet<Point> {
-        let mut collisions: HashMap<Point, Vec<Rc<RefCell<_>>>> = HashMap::new();
-        for cart in &self.carts {
+        let mut collisions: HashMap<Point, Vec<CartRef>> = HashMap::new();
+        for cart in self.carts.iter_mut() {
             if let Some(carts) = collisions.get_mut(&cart.borrow().location) {
                 carts.push(cart.clone());
             } else {
@@ -124,29 +126,27 @@ impl Track {
                 );
             }
 
-            {
-                cart.borrow_mut().move_forward();
-                let track = self.track.get(&cart.borrow().location).unwrap();
-                cart.borrow_mut().turn(track);
-            }
+            cart.borrow_mut().move_forward();
+            let track = self.track.get(&cart.borrow().location).unwrap();
+            cart.borrow_mut().turn(track);
 
-            if let Some(carts) = collisions.get_mut(&cart.borrow_mut().location) {
+            if let Some(carts) = collisions.get_mut(&cart.borrow().location) {
                 carts.push(cart.clone());
             } else {
-                let key = cart.borrow().location.clone();
                 collisions.insert(
-                    key,
+                    cart.borrow().location.clone(),
                     vec![cart.clone()]
                 );
             }
         }
-        let mut intersection = HashSet::new();
-        println!("{:?}", collisions);
-        for (key, value) in collisions {
-            println!("{:?}", self.carts);
-            unimplemented!();
+        let items: Vec<CartRef> = collisions.values()
+            .filter(|values| values.len() > 1)
+            .flat_map(|values| values.iter().map(|v| v.clone()))
+            .collect();
+        println!("{:?}", items);
+        for values in collisions.values() {
         }
-        intersection
+        unimplemented!();
     }
 }
 
