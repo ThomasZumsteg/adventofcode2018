@@ -24,12 +24,6 @@ struct Point {
     y: isize,
 }
 
-impl Point {
-    fn distance(&self, other: &Point) -> usize {
-        ((self.x - other.x).abs() + (self.y - other.y).abs()) as usize
-    }
-}
-
 impl fmt::Debug for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
@@ -49,6 +43,7 @@ struct Cart {
     location: Point,
     heading: Point,
     turns: usize,
+    active: bool,
 }
 
 impl fmt::Debug for Cart {
@@ -58,7 +53,11 @@ impl fmt::Debug for Cart {
         chars.insert(Point { x: 1, y: 0 }, '>');
         chars.insert(Point { x: 0, y: -1 }, '^');
         chars.insert(Point { x: 0, y: 1 }, 'v');
-        write!(f, "Cart({}, {:?})", chars.get(&self.heading).unwrap(), self.location)
+        if self.active {
+            write!(f, "Cart({}, {:?})", chars.get(&self.heading).unwrap(), self.location)
+        } else {
+            write!(f, "Dead({}, {:?})", chars.get(&self.heading).unwrap(), self.location)
+        }
     }
 }
 
@@ -139,14 +138,17 @@ impl Track {
                 );
             }
         }
-        let items: Vec<CartRef> = collisions.values()
-            .filter(|values| values.len() > 1)
-            .flat_map(|values| values.iter().map(|v| v.clone()))
-            .collect();
-        println!("{:?}", items);
-        for values in collisions.values() {
+        let mut result: HashSet<Point> = HashSet::new();
+        for (location, carts) in collisions {
+            if carts.len() > 1 {
+                result.insert(location);
+                for cart in carts {
+                    cart.borrow_mut().active = false;
+                }
+            }
         }
-        unimplemented!();
+        self.carts.retain(|c| c.borrow().active);
+        result
     }
 }
 
@@ -164,16 +166,18 @@ fn part1(track: &HashMap<Point, char>, carts: &Vec<Cart>) -> String {
 }
 
 fn part2(track: &HashMap<Point, char>, carts: &Vec<Cart>) -> String {
-    unimplemented!();
-    // while state.carts.len() > 1 {
-    //     let hits = state.step();
-    //     if 0 < hits.len() {
-    //         println!("{:?}: {}", hits, state.carts.len());
-    //         println!("{:?}", state.carts);
-    //     }
-    // }
-    // let p = state.carts.iter().next().unwrap();
-    // format!("{},{}", p.location.x, p.location.y)
+    let mut state = Track {
+        track: track.clone(),
+        carts: carts.iter().map(|c| Rc::new(RefCell::new(c.clone()))).collect(),
+    };
+    while state.carts.len() > 1 {
+        state.step();
+    }
+    if let Some(p) = state.carts.iter().next() {
+        format!("{},{}", p.borrow().location.x, p.borrow().location.y)
+    } else {
+        panic!("Woops");
+    }
 }
 
 fn parse(lines: String) -> (HashMap<Point, char>, Vec<Cart>) {
@@ -193,6 +197,7 @@ fn parse(lines: String) -> (HashMap<Point, char>, Vec<Cart>) {
                     location: Point { x: c as isize, y: r as isize },
                     heading: heading.clone(),
                     turns: 0,
+                    active: true,
                 });
             } else if segment != ' '{
                 track.insert(Point { x: c as isize, y: r as isize }, segment);
