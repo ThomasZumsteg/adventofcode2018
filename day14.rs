@@ -1,6 +1,9 @@
 use common::get_input;
 
 fn digits(number: u8) -> Vec<u8> {
+    if number == 0 {
+        return vec![0];
+    }
     let mut result = Vec::new();
     let mut remainer = number;
     while remainer > 0 {
@@ -29,7 +32,28 @@ fn part1(rounds: u32) -> String {
 }
 
 fn part2(input: u32) -> String {
-    unimplemented!()
+    let mut recipies = vec![3u8, 7];
+    let mut elf1 = 0;
+    let mut elf2 = 1;
+    let mut count = 0;
+    let target: Vec<u8> = input.to_string().chars().map(|d| d.to_string().parse::<u8>().unwrap()).collect();
+    let target_len: usize = target.len();
+    loop {
+        let digits = digits(recipies[elf1] + recipies[elf2]);
+        count += 1;
+        for d in digits {
+            recipies.push(d);
+            if recipies.len() > 10 {
+                let digits = recipies[recipies.len()-target_len..recipies.len()].to_vec(); 
+                // println!("{}: {:?} == {:?}", count, target, digits);
+                if digits == target {
+                    return count.to_string();
+                }
+            }
+        }
+        elf1 = (recipies[elf1] as usize + 1 + elf1) % recipies.len();
+        elf2 = (recipies[elf2] as usize + 1 + elf2) % recipies.len();
+    }
 }
 
 fn parse(input: String) -> u32 {
