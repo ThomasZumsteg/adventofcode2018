@@ -1,6 +1,8 @@
 use common::get_input;
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Point {
@@ -49,47 +51,44 @@ impl Unit {
     fn find_next_step(&self) -> Option<Point> {
         unimplemented!()
     }
-
-    fn find_defender(&self, defenders: Vec<&mut Unit>) -> Option<&mut Unit> {
-        unimplemented!()
-    }
 }
 
 type Input = HashMap<Point, char>;
 
 struct Board {
-    units: Vec<Unit>,
-    map: HashMap<Point, char>,
+    units: Vec<Rc<RefCell<Unit>>>,
+    map: HashMap<Point, Rc<RefCell<Unit>>>,
 }
 
 impl Board {
-    fn new(input: &HashMap<Point, char>, unit_factory: &Fn(Point, char) -> Unit) -> Board {
-        let map: HashMap<Point, char> = HashMap::new();
-        let units: Vec<Unit> = Vec::new();
+    fn new(input: &HashMap<Point, char>, unit_factory: &Fn(Point, char) -> Rc<RefCell<Unit>>) -> Board {
+        let mut map: HashMap<Point, Rc<RefCell<Unit>>> = HashMap::new();
+        let mut units: Vec<Rc<RefCell<Unit>>> = Vec::new();
         for (point, chr) in input {
-            if chr == &'E' || chr == &'G' {
-                units.push(unit_factory(*point, *chr));
-                map.insert(*point, '.');
-            } else {
-                map.insert(*point, *chr);
-            }
+            let unit = unit_factory(*point, *chr);
+            units.push(unit.clone());
+            map.insert(*point, unit.clone());
         }
         Board { units, map }
     }
 
     fn take_turn(&mut self) -> Result<(), ()> {
-        let units = self.units;
-        for unit in units {
+        self.units.sort_by(|a, b| a.position.cmp(&b.position));
+        for unit in self.units.iter_mut() {
             if unit.dead() {
                 continue
             }
             if let Some(position) = unit.find_next_step() {
                 unit.position = position;
             }
-            if let Some(&mut defender) = unit.find_defender(&self.units) {
-                defender.hp -= unit.ap;
-            }
+            // if let Some(&mut defender) = self.choose_defender(&unit.position) {
+            //     defender.hp -= unit.ap;
+            // }
         }
+        unimplemented!()
+    }
+
+    fn choose_defender(&self, position: &Point) -> Option<&mut Unit> {
         unimplemented!()
     }
 }
