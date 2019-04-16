@@ -2,6 +2,7 @@ use common::get_input;
 use std::collections::HashMap;
 use std::cmp::Ordering;
 use std::cell::RefCell;
+use std::ops::Index;
 use std::rc::Rc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -24,6 +25,12 @@ impl Ord for Point {
             Ordering::Greater => Ordering::Greater,
         }
     }
+}
+
+enum BoardSpace {
+    Wall,
+    Space,
+    Unit(Rc<RefCell<Unit>>)
 }
 
 impl PartialOrd for Point {
@@ -57,12 +64,12 @@ type Input = HashMap<Point, char>;
 
 struct Board {
     units: Vec<Rc<RefCell<Unit>>>,
-    map: HashMap<Point, Rc<RefCell<Unit>>>,
+    map: HashMap<Point, BoardSpace>,
 }
 
 impl Board {
     fn new(input: &HashMap<Point, char>, unit_factory: &Fn(Point, char) -> Rc<RefCell<Unit>>) -> Board {
-        let mut map: HashMap<Point, Rc<RefCell<Unit>>> = HashMap::new();
+        let mut map: HashMap<Point, BoardSpace> = HashMap::new();
         let mut units: Vec<Rc<RefCell<Unit>>> = Vec::new();
         for (point, chr) in input {
             let unit = unit_factory(*point, *chr);
@@ -73,13 +80,13 @@ impl Board {
     }
 
     fn take_turn(&mut self) -> Result<(), ()> {
-        self.units.sort_by(|a, b| a.position.cmp(&b.position));
-        for unit in self.units.iter_mut() {
-            if unit.dead() {
+        self.units.sort_by(|a, b| a.borrow().position.cmp(&b.borrow().position));
+        for unit in self.units.iter() {
+            if unit.borrow().dead() {
                 continue
             }
-            if let Some(position) = unit.find_next_step() {
-                unit.position = position;
+            if let Some(position) = unit.borrow().find_next_step() {
+                unit.borrow_mut().position = position;
             }
             // if let Some(&mut defender) = self.choose_defender(&unit.position) {
             //     defender.hp -= unit.ap;
@@ -91,18 +98,27 @@ impl Board {
     fn choose_defender(&self, position: &Point) -> Option<&mut Unit> {
         unimplemented!()
     }
+
+    fn get(&self, position: &Point) -> BoardSpace {
+        for unit in self.units.iter() {
+            if unit.borrow().position == *position {
+                return BoardSpace::Unit(unit.clone());
+            }
+        }
+        self.map[position]
+    }
 }
 
 fn part1(input: &Input) -> u32 {
-    fn unit_creator(location: Point, race: char) -> Unit {
+    fn unit_creator(location: Point, race: char) -> Rc<RefCell<Unit>> {
         match race {
-            'E' => Unit::new(location, race, 3, 3),
-            'G' => Unit::new(location, race, 3, 3),
+            'E' => Rc::new(RefCell::new(Unit::new(location, race, 3, 3))),
+            'G' => Rc::new(RefCell::new(Unit::new(location, race, 3, 3))),
             _ => panic!("Unknown race")
         }
     }
     let mut board = Board::new(&input, &unit_creator);
-    while true {
+    loop {
         board.take_turn();
     }
     unimplemented!()
