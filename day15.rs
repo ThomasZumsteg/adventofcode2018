@@ -1,5 +1,5 @@
 use common::get_input;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, VecDeque, HashSet};
 use std::cmp::Ordering;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -29,6 +29,15 @@ impl Add for Point {
 impl Point {
     fn new(x: i16, y: i16) -> Point {
         Point {x, y}
+    }
+
+    fn surrounding(&self) -> Vec<Point> {
+        vec![
+            *self + Point::new(0, -1),
+            *self + Point::new(-1, 0),
+            *self + Point::new(1, 0),
+            *self + Point::new(0, 1),
+        ]
     }
 }
 
@@ -147,7 +156,41 @@ impl Board {
     }
 
     fn find_path(&self, unit: &UnitCell) -> VecDeque<Point> {
-        unimplemented!()
+        type State = (Point, VecDeque<Point>);
+        let mut seen: HashSet<Point> = HashSet::new();
+
+        let mut queue: Vec<State> = vec![];
+        for initial in unit.borrow().position.surrounding() {
+            queue.push((initial, VecDeque::new()));
+        }
+        while !queue.is_empty() {
+            let mut new_queue: Vec<State> = Vec::new();
+            for (current, path) in queue {
+                if seen.contains(&current) {
+                    continue;
+                }
+                seen.insert(current);
+
+                match self.get(&current) {
+                    BoardSpace::Wall => continue,
+                    BoardSpace::Space => (),
+                    BoardSpace::Unit(u) => {
+                        if u.borrow().race == unit.borrow().race {
+                            continue
+                        } else {
+                            return path
+                        }
+                    }
+                }
+                for diff in current.surrounding() {
+                    let mut new_path = path.clone();
+                    new_path.push_back(current);
+                    new_queue.push((diff, new_path));
+                }
+            }
+            queue = new_queue;
+        }
+        VecDeque::new()
     }
 
     fn find_enemies(&self, unit: &UnitCell) -> Vec<UnitCell> {
@@ -173,18 +216,20 @@ impl Board {
 fn part1(input: &Input) -> u32 {
     fn unit_creator(location: Point, race: char) -> Option<UnitCell> {
         match race {
-            'E' => Some(Rc::new(RefCell::new(Unit::new(location, race, 3, 3)))),
-            'G' => Some(Rc::new(RefCell::new(Unit::new(location, race, 3, 3)))),
+            'E' => Some(Rc::new(RefCell::new(Unit::new(location, race, 200, 3)))),
+            'G' => Some(Rc::new(RefCell::new(Unit::new(location, race, 200, 3)))),
             _ => None 
         }
     }
-    let board = Board::new(&input, &unit_creator);
-    println!("{:?}", board);
+    let mut board = Board::new(&input, &unit_creator);
+    let mut round = 0;
     while board.units.iter().any(|u| u.borrow().race == 'E') && 
         board.units.iter().any(|u| u.borrow().race == 'G')
     {
+        round += 1;
         let mut order = board.units.clone();
         order.sort_by_key(|u| u.borrow().position);
+        println!("{:?}", board);
         for unit in order.iter_mut() {
             if unit.borrow().dead() {
                 continue
@@ -199,8 +244,9 @@ fn part1(input: &Input) -> u32 {
                 enemy.borrow_mut().hp -= unit.borrow().ap;
             }
         }
+        board.units.retain(|u| !u.borrow().dead());
     }
-    unimplemented!()
+    board.units.iter().fold(0, |acc, u| acc + u.borrow().hp as u32) * round
 }
 
 fn part2(input: &Input) -> u32 {
