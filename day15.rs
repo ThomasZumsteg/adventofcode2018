@@ -14,7 +14,7 @@ struct Point {
 
 impl fmt::Debug for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "({}, {})", self.x, self.y)
+        write!(f, "Point(x={}, y={})", self.x, self.y)
     }
 }
 
@@ -69,10 +69,10 @@ struct Unit {
 impl fmt::Debug for Unit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.race {
-            'E' => write!(f, "Elf(position: {:?}, hp: {}, ap: {})", 
-                          self.position, self.hp, self.ap),
-            'G' => write!(f, "Goblin(position: {:?}, hp: {}, ap: {})", 
-                          self.position, self.hp, self.ap),
+            'E' => write!(f, "Elf({:?}, attack={}, hp={})", 
+                          self.position, self.ap, self.hp),
+            'G' => write!(f, "Goblin({:?}, attack={}, hp={})", 
+                          self.position, self.ap, self.hp),
             _ => panic!("Not valid"),
         }
     }
@@ -99,11 +99,12 @@ enum BoardSpace {
 struct Board {
     units: Vec<UnitCell>,
     map: HashMap<Point, char>,
+    rounds: u32, 
 }
 
 impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut result = String::new();
+        let mut result = format!("Round {}/{}\n", self.rounds, 3);
         let mut keys: Vec<&Point> = self.map.keys().collect();
         keys.sort();
         let mut curr_row = 0;
@@ -121,7 +122,7 @@ impl fmt::Debug for Board {
         let mut units = self.units.clone();
         units.sort_by_key(|u| u.borrow().position);
         for unit in units {
-            write!(&mut result, "\n{:?}", unit.borrow());
+            write!(&mut result, "\n{:?}", unit.borrow())?;
         }
         write!(f, "{}", result)
     }
@@ -139,7 +140,7 @@ impl Board {
                 map.insert(*point, *chr);
             }
         }
-        Board { units, map }
+        Board { units, map, rounds: 0 }
     }
 
     fn get(&self, position: &Point) -> BoardSpace {
@@ -208,7 +209,10 @@ impl Board {
                 }
             }
         }
-        result.sort_by_key(|u| u.borrow().hp);
+        result.sort_by(|u, v| match u.borrow().hp.cmp(&v.borrow().hp) {
+            Ordering::Equal => v.borrow().position.cmp(&u.borrow().position),
+            result => result,
+        });
         result
     }
 }
@@ -222,31 +226,34 @@ fn part1(input: &Input) -> u32 {
         }
     }
     let mut board = Board::new(&input, &unit_creator);
-    let mut round = 0;
-    while board.units.iter().any(|u| u.borrow().race == 'E') && 
-        board.units.iter().any(|u| u.borrow().race == 'G')
-    {
-        round += 1;
+    'game: loop {
         let mut order = board.units.clone();
         order.sort_by_key(|u| u.borrow().position);
-        println!("{:?}", board);
         for unit in order.iter_mut() {
             if unit.borrow().dead() {
                 continue
+            }
+            if board.units.iter().all(|u|
+               u.borrow().dead() || u.borrow().race == unit.borrow().race
+            ) {
+                board.units.retain(|u| !u.borrow().dead());
+                return board.units.iter().fold(0,
+                   |acc, u| acc + u.borrow().hp as u32) * board.rounds;
             }
             let mut path = board.find_path(unit);
             if let Some(pos) = path.pop_front() {
                 unit.borrow_mut().position = pos;
             }
             let mut enemies = board.find_enemies(unit);
-            enemies.sort_by_key(|e| e.borrow().hp);
+            enemies.sort_by_key(|e| -e.borrow().hp);
             if let Some(enemy) = enemies.pop() {
                 enemy.borrow_mut().hp -= unit.borrow().ap;
             }
+            board.units.retain(|u| !u.borrow().dead());
         }
-        board.units.retain(|u| !u.borrow().dead());
+        board.rounds += 1;
+        // println!("{:?}", board);
     }
-    board.units.iter().fold(0, |acc, u| acc + u.borrow().hp as u32) * round
 }
 
 fn part2(input: &Input) -> u32 {
@@ -263,8 +270,58 @@ fn parse(text: String) -> Input {
     map
 }
 
+static SAMPLE_BOARDS: [(&str, u32, u32); 6] = [("#######
+#.G...#
+#...EG#
+#.#.#G#
+#..G#E#
+#.....#
+#######", 27730, 4988),
+("#######
+#G..#E#
+#E#E.E#
+#G.##.#
+#...#E#
+#...E.#
+#######", 36334, 0),
+("#######
+#E..EG#
+#.#G.E#
+#E.##E#
+#G..#.#
+#..E#.#
+#######", 39514, 31284),
+("#######
+#E.G#.#
+#.#G..#
+#G.#.G#
+#G..#.#
+#...E.#
+#######", 27755, 3478),
+("#######
+#.E...#
+#.#..G#
+#.###.#
+#E#G#G#
+#...#G#
+#######", 28944, 6474),
+("#########
+#G......#
+#.E.#...#
+#..##..G#
+#...##..#
+#...#...#
+#.G...G.#
+#.....G.#
+#########", 18740, 1140)];
+
 fn main() {
+    for (board, p1_result, p2_result) in SAMPLE_BOARDS.iter() {
+        let input = parse(board.to_string());
+        assert!(part1(&input)==*p1_result);
+        // assert!(*p2_result==0 || part1(&input)==*p2_result);
+    }
     let input = parse(get_input(15, 2018));
     println!("Part 1: {}", part1(&input));
-    println!("Part 2: {}", part2(&input));
+    // println!("Part 2: {}", part2(&input));
 }
