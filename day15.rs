@@ -252,12 +252,52 @@ fn part1(input: &Input) -> u32 {
             board.units.retain(|u| !u.borrow().dead());
         }
         board.rounds += 1;
-        // println!("{:?}", board);
     }
 }
 
 fn part2(input: &Input) -> u32 {
-    unimplemented!()
+    let mut elf_attack = 3;
+    loop {
+        let unit_creator = |location: Point, race: char| -> Option<UnitCell> {
+            match race {
+                'E' => Some(Rc::new(RefCell::new(Unit::new(location, race, 200, elf_attack)))),
+                'G' => Some(Rc::new(RefCell::new(Unit::new(location, race, 200, 3)))),
+                _ => None 
+            }
+        };
+        let mut board = Board::new(&input, &unit_creator);
+        'game: loop {
+            let mut order = board.units.clone();
+            order.sort_by_key(|u| u.borrow().position);
+            for unit in order.iter_mut() {
+                if unit.borrow().dead() {
+                    continue
+                }
+                if board.units.iter().all(|u|
+                   u.borrow().dead() || u.borrow().race == unit.borrow().race
+                ) {
+                    board.units.retain(|u| !u.borrow().dead());
+                    return board.units.iter().fold(0,
+                       |acc, u| acc + u.borrow().hp as u32) * board.rounds;
+                }
+                let mut path = board.find_path(unit);
+                if let Some(pos) = path.pop_front() {
+                    unit.borrow_mut().position = pos;
+                }
+                let mut enemies = board.find_enemies(unit);
+                enemies.sort_by_key(|e| -e.borrow().hp);
+                if let Some(enemy) = enemies.pop() {
+                    enemy.borrow_mut().hp -= unit.borrow().ap;
+                    if enemy.borrow().hp < 0 && enemy.borrow().race == 'E' {
+                        elf_attack += 1;
+                        break 'game;
+                    }
+                }
+                board.units.retain(|u| !u.borrow().dead());
+            }
+            board.rounds += 1;
+        }
+    }
 }
 
 fn parse(text: String) -> Input {
@@ -319,9 +359,9 @@ fn main() {
     for (board, p1_result, p2_result) in SAMPLE_BOARDS.iter() {
         let input = parse(board.to_string());
         assert!(part1(&input)==*p1_result);
-        // assert!(*p2_result==0 || part1(&input)==*p2_result);
+        assert!(*p2_result==0 || part2(&input)==*p2_result);
     }
     let input = parse(get_input(15, 2018));
     println!("Part 1: {}", part1(&input));
-    // println!("Part 2: {}", part2(&input));
+    println!("Part 2: {}", part2(&input));
 }
