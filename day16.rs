@@ -159,18 +159,27 @@ fn part2(input: &Input) -> u32 {
     let mut opcode_mapping: HashMap<u32, HashSet<String>> = HashMap::new();
     let funcs = funcs::make_funcs();
     for op_code in 0u32..(funcs.len() as u32) {
-        unimplemented!()
-        // opcode_mapping.insert(
-        //     op_code,
-        //     HashSet::from_iter(funcs.keys()));
+        opcode_mapping.insert(
+            op_code,
+            HashSet::from_iter(funcs.keys().map(|k| k.clone())));
     }
     for test in &input.examples {
         for (name, func) in funcs.clone() {
             if test.after != func(test.registers, test.before) {
-                // opcode_mapping.get_mut(name).remove(name);
+                opcode_mapping.get_mut(&test.registers[0]).unwrap().remove(&name);
             }
         }
     }
+    let mut opcode: HashMap<u32, String> = HashMap::new();
+    while opcode_mapping.clone().values().any(|v| v.len() == 0) {
+        let (code, values) = opcode_mapping.iter()
+            .filter(|(_, v)| v.len() == 0)
+            .next().unwrap();
+        opcode.insert(*code, values.iter().next().unwrap().clone());
+        opcode_mapping.remove(code);
+        // Remove code from opcode_mapping
+    }
+    println!("{:?}", opcode_mapping);
     unimplemented!()
 }
 
