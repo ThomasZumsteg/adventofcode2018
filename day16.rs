@@ -40,7 +40,7 @@ mod funcs {
 
     fn muli(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
         let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] + reg[2];
+        new_val[reg[3] as usize] = val[reg[1] as usize] * reg[2];
         new_val
     }
 
@@ -171,16 +171,32 @@ fn part2(input: &Input) -> u32 {
         }
     }
     let mut opcode: HashMap<u32, String> = HashMap::new();
-    while opcode_mapping.clone().values().any(|v| v.len() == 0) {
-        let (code, values) = opcode_mapping.iter()
-            .filter(|(_, v)| v.len() == 0)
-            .next().unwrap();
-        opcode.insert(*code, values.iter().next().unwrap().clone());
-        opcode_mapping.remove(code);
-        // Remove code from opcode_mapping
+    loop {
+        let to_remove: Vec<(u32, String)> = opcode_mapping.iter()
+            .filter_map(|(k, v)|
+                if v.len() == 1 {
+                    Some((*k, v.iter().next().unwrap().clone()))
+                } else {
+                    None
+            }).collect();
+        if to_remove.is_empty() {
+            break
+        }
+        for (code, value) in to_remove {
+            for values in opcode_mapping.values_mut() {
+                values.remove(&value);
+            }
+            opcode.insert(code, value);
+        }
+        opcode_mapping.retain(|_, v| v.len() > 0);
     }
-    println!("{:?}", opcode_mapping);
-    unimplemented!()
+    let mut values = [0, 0, 0, 0];
+    for step in &input.program {
+        let instr = &opcode[&step[0]];
+        let func = funcs[instr];
+        values = func(*step, values);
+    }
+    return values[0]
 }
 
 fn parse(input: String) -> Input {
