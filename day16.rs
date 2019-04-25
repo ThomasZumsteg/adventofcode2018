@@ -4,117 +4,51 @@ use std::collections::{HashMap, HashSet};
 
 use common::get_input;
 
+type Reg = [u32; 4];
+
 struct Example {
-    before: [u32; 4],
-    registers: [u32; 4],
-    after: [u32; 4],
+    before: Reg,
+    registers: Reg,
+    after: Reg,
 }
 
 struct Input {
     examples: Vec<Example>,
-    program: Vec<[u32; 4]>,
+    program: Vec<Reg>,
 }
 
 mod funcs {
+    use super::Reg;
     use std::collections::HashMap;
 
-    type FuncFull = Fn([u32; 4], [u32; 4]) -> [u32; 4];
-
-    fn addr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] + val[reg[2] as usize];
-        new_val
+    macro_rules! opcode {
+        ($name:ident, $func:expr) => (
+            fn $name(reg: Reg, val: Reg) -> Reg {
+                let mut new_val = val.clone();
+                new_val[reg[3] as usize] = $func(val, reg);
+                new_val
+            }
+        )
     }
 
-    fn addi(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] + reg[2];
-        new_val
-    }
+    opcode!(addr, |val: Reg, reg: Reg| val[reg[1] as usize] + val[reg[2] as usize]);
+    opcode!(addi, |val: Reg, reg: Reg| val[reg[1] as usize] + reg[2]);
+    opcode!(mulr, |val: Reg, reg: Reg| val[reg[1] as usize] * val[reg[2] as usize]);
+    opcode!(muli, |val: Reg, reg: Reg| val[reg[1] as usize] * reg[2]);
+    opcode!(banr, |val: Reg, reg: Reg| val[reg[1] as usize] & val[reg[2] as usize]);
+    opcode!(bani, |val: Reg, reg: Reg| val[reg[1] as usize] & reg[2]);
+    opcode!(borr, |val: Reg, reg: Reg| val[reg[1] as usize] | val[reg[2] as usize]);
+    opcode!(bori, |val: Reg, reg: Reg| val[reg[1] as usize] | reg[2]);
+    opcode!(setr, |val: Reg, reg: Reg| val[reg[1] as usize]);
+    opcode!(seti, |_: Reg, reg: Reg| reg[1]);
+    opcode!(gtir, |val: Reg, reg: Reg| if reg[1] > val[reg[2] as usize] { 1 } else { 0 });
+    opcode!(gtri, |val: Reg, reg: Reg| if val[reg[1] as usize] > reg[2] { 1 } else { 0 });
+    opcode!(gtrr, |val: Reg, reg: Reg| if val[reg[1] as usize] > val[reg[2] as usize] { 1 } else { 0 });
+    opcode!(eqir, |val: Reg, reg: Reg| if reg[1] == val[reg[2] as usize] { 1 } else { 0 });
+    opcode!(eqri, |val: Reg, reg: Reg| if val[reg[1] as usize] == reg[2] { 1 } else { 0 });
+    opcode!(eqrr, |val: Reg, reg: Reg| if val[reg[1] as usize] == val[reg[2] as usize] { 1 } else { 0 });
 
-    fn mulr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] * val[reg[2] as usize];
-        new_val
-    }
-
-    fn muli(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] * reg[2];
-        new_val
-    }
-
-    fn banr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] & val[reg[2] as usize];
-        new_val
-    }
-
-    fn bani(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] & reg[2];
-        new_val
-    }
-
-    fn borr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] | val[reg[2] as usize];
-        new_val
-    }
-
-    fn bori(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize] | reg[2];
-        new_val
-    }
-
-    fn setr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = val[reg[1] as usize];
-        new_val
-    }
-
-    fn seti(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = reg[1];
-        new_val
-    }
-
-    fn gtir(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = if reg[1] > val[reg[2] as usize] { 1 } else { 0 };
-        new_val
-    }
-
-    fn gtri(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = if val[reg[1] as usize] > reg[2] { 1 } else { 0 };
-        new_val
-    }
-
-    fn gtrr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = if val[reg[1] as usize] > val[reg[2] as usize] { 1 } else { 0 };
-        new_val
-    }
-
-    fn eqir(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = if reg[1] == val[reg[2] as usize] { 1 } else { 0 };
-        new_val
-    }
-
-    fn eqri(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = if val[reg[1] as usize] == reg[2] { 1 } else { 0 };
-        new_val
-    }
-
-    fn eqrr(reg: [u32; 4], val: [u32; 4]) -> [u32; 4] {
-        let mut new_val = val.clone();
-        new_val[reg[3] as usize] = if val[reg[1] as usize] == val[reg[2] as usize] { 1 } else { 0 };
-        new_val
-    }
+    type FuncFull = Fn(Reg, Reg) -> Reg;
 
     pub fn make_funcs() -> HashMap<String, &'static FuncFull> {
         let mut collection: HashMap<String, &'static FuncFull>  = HashMap::new();
@@ -142,13 +76,9 @@ fn part1(input: &Input) -> u32 {
     let mut count = 0;
     let funcs = funcs::make_funcs();
     for test in &input.examples {
-        let mut works = 0;
-        for func in funcs.values() {
-            if test.after == func(test.registers, test.before) {
-                works += 1;
-            }
-        }
-        if works >= 3 {
+        if 3 >= funcs.values().fold(0, |acc, func| 
+                if test.after == func(test.registers, test.before) { acc + 1 }
+                else { acc }) {
             count += 1;
         }
     }
