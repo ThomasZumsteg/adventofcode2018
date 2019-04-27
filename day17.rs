@@ -7,7 +7,7 @@ use common::get_input;
 
 type Input = HashMap<Point, char>;
 
-#[derive(Eq, PartialEq)]
+#[derive(Eq, PartialEq, Hash)]
 struct Point {
     x: u32,
     y: u32,
@@ -33,7 +33,29 @@ impl fmt::Debug for Point {
     }
 }
 
-fn part1(map: &Input) -> u32 {
+struct WaterMap<'a> {
+    _map: &'a Input,
+    _state: Input,
+    _lower_left: Point, 
+    _upper_right: Point, 
+}
+
+impl <'a>WaterMap<'a> {
+    fn new(map: &'a Input) -> WaterMap<'a> {
+        let mut water = HashMap::new();
+        water.insert(Point{x:500, y:0}, '+');
+        WaterMap {
+            _map: map,
+            _state: water,
+            _lower_left: Point{ x:0, y:0 },
+            _upper_right: Point{ x:0, y:0 },
+        }
+    }
+}
+
+
+fn part1(input: &Input) -> u32 {
+    let map = WaterMap::new(input);
     unimplemented!()
 }
 
@@ -42,11 +64,23 @@ fn part2(map: &Input) -> u32 {
 }
 
 fn parse(lines: String) -> Input {
+    let mut result: Input = HashMap::new();
     let regex = Regex::new(r"([xy])=(\d+), ([xy])=(\d+)..(\d+)").unwrap();
     for line in lines.trim().split("\n") {
-        println!("{}", line);
+        let cap = regex.captures(line).unwrap();
+        if (&cap[1], &cap[3]) == ("x", "y") {
+            let x = cap[2].parse().unwrap();
+            for y in cap[4].parse().unwrap()..cap[5].parse().unwrap() {
+                result.insert(Point{x, y}, '#');
+            }
+        } else {
+            let y = cap[1].parse().unwrap();
+            for x in cap[4].parse().unwrap()..cap[5].parse().unwrap() {
+                result.insert(Point{x, y}, '#');
+            }
+        }
     }
-    unimplemented!()
+    result
 }
 
 fn main() {
