@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use std::ops::Add;
 use std::fmt;
 
@@ -36,7 +37,7 @@ impl fmt::Debug for Point {
 struct WaterMap<'a> {
     map: &'a Input,
     state: Input,
-    front: Vec<Point>,
+    front: HashSet<Point>,
     lower_right: Point, 
     upper_left: Point, 
 }
@@ -57,7 +58,7 @@ impl <'a>fmt::Debug for WaterMap<'a> {
 impl <'a>WaterMap<'a> {
     fn new(map: &'a Input) -> WaterMap<'a> {
         let mut water = HashMap::new();
-        water.insert(Point{x:500, y:0}, '+');
+        water.insert(Point::new(500, 0), '+');
         let max_y = map.keys().map(|p| p.y).max().unwrap();
         let min_x = map.keys().map(|p| p.x).min().unwrap();
         let max_x = map.keys().map(|p| p.x).max().unwrap();
@@ -66,7 +67,7 @@ impl <'a>WaterMap<'a> {
             state: water,
             upper_left: Point{ x: min_x, y: 0 },
             lower_right: Point{ x: max_x+1, y: max_y+1 },
-            front: Vec::new(),
+            front: HashSet::from_iter(vec![Point::new(500, 1)]),
         }
     }
 
@@ -76,26 +77,74 @@ impl <'a>WaterMap<'a> {
         else { '.' }
     }
 
+    fn set(&mut self, p: Point, ch: char) {
+        self.state.insert(p, ch);
+    }
+
+    fn in_bounds(&self, point: Point) -> bool {
+        self.upper_left.x < point.x && self.upper_left.y < point.y &&
+            self.lower_right.x > point.x && self.lower_right.y > point.y
+    }
+
+    fn row_is_full(&self, p: Point) -> bool {
+        for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
+            let mut q = p;
+            while self.get(&q) == '~' {
+                q = q + diff;
+            }
+            if self.get(&q) != '#' {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn set_row(&mut self, row: Point, chr: char) {
+        for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
+            let mut q = row;
+            while self.get(&q) == '~' {
+                self.set(q, chr);
+                q = q + diff;
+            }
+        }
+    }
+
     fn step(&mut self) {
-        let mut next = Vec::new();
+        let mut next = HashSet::new();
         for p in self.front.clone() {
             let below = p + Point::new(0, 1);
             match self.get(&below) {
-                '#' => unimplemented!(),
-                '~' => unimplemented!(),
-                '|' => unimplemented!(),
-                '.' => unimplemented!(),
+                '~' => (),
+                '#' => { next.insert(p + Point::new(0, -1)); },
+                '|' => { 
+                    if self.row_is_full(p) {
+                        self.set_row(p, '~');
+                        next.insert(p + Point::new(0, -1));
+                    } else {
+                        self.set(p, '|');
+                        next.insert(p + Point::new(-1, 0));
+                        next.insert(p + Point::new(1, 0));
+                    }
+                },
+                '.' => {
+                    self.set(p, '|');
+                    next.insert(p + Point::new(0, 1));
+                },
                 err => panic!("Unknow code {:?} as point {:?}", err, p),
             }
         }
+        next.retain(|p| self.in_bounds(*p));
         self.front = next;
     }
 }
 
 
 fn part1(input: &Input) -> u32 {
-    let map = WaterMap::new(input);
-    println!("{:?}", map);
+    let mut map = WaterMap::new(input);
+    while !map.front.is_empty() {
+        map.step();
+        println!("{:?}\n", map);
+    }
     unimplemented!()
 }
 
