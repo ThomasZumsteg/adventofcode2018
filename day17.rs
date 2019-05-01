@@ -89,7 +89,7 @@ impl <'a>WaterMap<'a> {
     fn row_is_full(&self, p: Point) -> bool {
         for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
             let mut q = p;
-            while self.get(&q) == '~' {
+            while self.get(&q) == '|' {
                 q = q + diff;
             }
             if self.get(&q) != '#' {
@@ -100,9 +100,10 @@ impl <'a>WaterMap<'a> {
     }
 
     fn set_row(&mut self, row: Point, chr: char) {
+        self.set(row, '~');
         for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
-            let mut q = row;
-            while self.get(&q) == '~' {
+            let mut q = row + diff;
+            while self.get(&q) == '|' {
                 self.set(q, chr);
                 q = q + diff;
             }
@@ -111,21 +112,23 @@ impl <'a>WaterMap<'a> {
 
     fn step(&mut self) {
         let mut next = HashSet::new();
+        let diffs = [Point::new(0, 1), Point::new(0, 0), Point::new(1, 0), Point::new(-1, 0)];
         for p in self.front.clone() {
-            let below = p + Point::new(0, 1);
+            if self.get(&p) != '.' {
+                continue
+            }
+            for diff in 
+            let below = self.get(p + Point::new(0, 1));
+            let left = self.p + Point::new(-1, 0);
+            let right = p + Point::new(1, 0);
+            let current = p
             match self.get(&below) {
-                '~' => (),
-                '#' => { next.insert(p + Point::new(0, -1)); },
-                '|' => { 
-                    if self.row_is_full(p) {
-                        self.set_row(p, '~');
-                        next.insert(p + Point::new(0, -1));
-                    } else {
-                        self.set(p, '|');
-                        next.insert(p + Point::new(-1, 0));
-                        next.insert(p + Point::new(1, 0));
+                '#' | '~' => {
+                    for q in self.set_row(p) {
+                        next.insert(1)
                     }
-                },
+                }
+                '|' => (),
                 '.' => {
                     self.set(p, '|');
                     next.insert(p + Point::new(0, 1));
