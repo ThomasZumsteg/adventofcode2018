@@ -47,7 +47,7 @@ impl <'a>fmt::Debug for WaterMap<'a> {
         let mut result = String::new();
         for y in self.upper_left.y..self.lower_right.y {
             for x in self.upper_left.x..self.lower_right.x {
-                result.push(self.get(&Point::new(x, y)));
+                result.push(self.get(Point::new(x, y)));
             }
             result.push('\n');
         }
@@ -71,7 +71,7 @@ impl <'a>WaterMap<'a> {
         }
     }
 
-    fn get(&self, point: &Point) -> char {
+    fn get(&self, point: Point) -> char {
         if let Some(c) = self.state.get(&point) { *c }
         else if let Some(c) = self.map.get(&point) { *c }
         else { '.' }
@@ -89,10 +89,10 @@ impl <'a>WaterMap<'a> {
     fn row_is_full(&self, p: Point) -> bool {
         for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
             let mut q = p;
-            while self.get(&q) == '|' {
+            while self.get(q) == '|' {
                 q = q + diff;
             }
-            if self.get(&q) != '#' {
+            if self.get(q) != '#' {
                 return false;
             }
         }
@@ -103,7 +103,7 @@ impl <'a>WaterMap<'a> {
         self.set(row, '~');
         for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
             let mut q = row + diff;
-            while self.get(&q) == '|' {
+            while self.get(q) == '|' {
                 self.set(q, chr);
                 q = q + diff;
             }
@@ -112,28 +112,37 @@ impl <'a>WaterMap<'a> {
 
     fn step(&mut self) {
         let mut next = HashSet::new();
-        let diffs = [Point::new(0, 1), Point::new(0, 0), Point::new(1, 0), Point::new(-1, 0)];
         for p in self.front.clone() {
-            if self.get(&p) != '.' {
+            if self.get(p) != '.' {
                 continue
             }
-            for diff in 
-            let below = self.get(p + Point::new(0, 1));
-            let left = self.p + Point::new(-1, 0);
-            let right = p + Point::new(1, 0);
-            let current = p
-            match self.get(&below) {
-                '#' | '~' => {
-                    for q in self.set_row(p) {
-                        next.insert(1)
-                    }
-                }
-                '|' => (),
-                '.' => {
-                    self.set(p, '|');
+            let surround = (
+                self.get(p + Point::new(-1, 0)),
+                self.get(p + Point::new(1, 0)),
+                self.get(p + Point::new(0, 1)),
+            );
+            self.set(p, '|');
+            match surround {
+                ('.', '.', '#') | ('.', '.', '~') => {
+                    next.insert(p + Point::new(-1, 0));
+                    next.insert(p + Point::new(1, 0));
+                },
+                ('.', _, '#') | ('.', _, '~') => {
+                    next.insert(p + Point::new(-1, 0));
+                },
+                ( _, '.', '#') | (_, '.', '~') => {
+                    next.insert(p + Point::new(1, 0));
+                },
+                ( _, _, '.') => {
                     next.insert(p + Point::new(0, 1));
                 },
-                err => panic!("Unknow code {:?} as point {:?}", err, p),
+                ( '#', _, '#') | ( _, '#', '#') => {
+                    if self.row_is_full(p) {
+                        self.set_row(p, '~');
+                    }
+                    next.insert(p + Point::new(-1, 0));
+                },
+                _ => unimplemented!(),
             }
         }
         next.retain(|p| self.in_bounds(*p));
