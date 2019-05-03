@@ -99,50 +99,56 @@ impl <'a>WaterMap<'a> {
         true
     }
 
-    fn set_row(&mut self, row: Point, chr: char) {
+    fn set_row(&mut self, row: Point, chr: char) -> HashSet<Point> {
         self.set(row, '~');
+        let mut front: HashSet<Point> = HashSet::new();
         for diff in vec![Point::new(-1, 0), Point::new(1, 0)] {
             let mut q = row + diff;
             while self.get(q) == '|' {
                 self.set(q, chr);
+                let up = q + Point::new(0, -1);
+                if self.get(up) == '|' {
+                    front.insert(up);
+                }
                 q = q + diff;
             }
         }
+        front
     }
 
     fn step(&mut self) {
         let mut next = HashSet::new();
         for p in self.front.clone() {
-            if self.get(p) != '.' {
-                continue
-            }
             let surround = (
+                self.get(p + Point::new(0, 1)),
                 self.get(p + Point::new(-1, 0)),
                 self.get(p + Point::new(1, 0)),
-                self.get(p + Point::new(0, 1)),
             );
-            self.set(p, '|');
+            if self.get(p) != '~' {
+                self.set(p, '|');
+            }
             match surround {
-                ('.', '.', '#') | ('.', '.', '~') => {
-                    next.insert(p + Point::new(-1, 0));
-                    next.insert(p + Point::new(1, 0));
-                },
-                ('.', _, '#') | ('.', _, '~') => {
-                    next.insert(p + Point::new(-1, 0));
-                },
-                ( _, '.', '#') | (_, '.', '~') => {
-                    next.insert(p + Point::new(1, 0));
-                },
-                ( _, _, '.') => {
+                ('.',_,_) => {
                     next.insert(p + Point::new(0, 1));
                 },
-                ( '#', _, '#') | ( _, '#', '#') => {
+                ('#','#','|') | ('#','|','#') | ('~','#','|') | ('~','|','#') | ('~','|','|') | ('#','|','|') | ('#','#','#') | ('~','#','#') => {
                     if self.row_is_full(p) {
-                        self.set_row(p, '~');
+                        for q in self.set_row(p, '~') {
+                            next.insert(q);
+                        }
                     }
+                },
+                ('#','.','.') | ('~','.','.') => {
+                    next.insert(p + Point::new(1, 0));
                     next.insert(p + Point::new(-1, 0));
                 },
-                _ => unimplemented!(),
+                ('#',_,'.') | ('~',_,'.') => {
+                    next.insert(p + Point::new(1, 0));
+                },
+                ('#','.',_) | ('~','.',_) => {
+                    next.insert(p + Point::new(-1, 0));
+                },
+                _ => (),
             }
         }
         next.retain(|p| self.in_bounds(*p));
@@ -153,10 +159,15 @@ impl <'a>WaterMap<'a> {
 
 fn part1(input: &Input) -> u32 {
     let mut map = WaterMap::new(input);
+    let mut count = 0;
     while !map.front.is_empty() {
         map.step();
-        println!("{:?}\n", map);
+        // if count % 100 == 0 {
+        //     println!("{:?}\n", map);
+        // }
+        count += 1;
     }
+    println!("{:?}\n", map);
     unimplemented!()
 }
 
