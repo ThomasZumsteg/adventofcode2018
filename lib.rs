@@ -12,3 +12,42 @@ pub fn get_input(day: u8, year: u16) -> String {
     }
     return result;
 }
+
+pub mod point {
+    use std::ops::{Add, Sub};
+    use std::fmt;
+
+    #[derive(Clone, Copy, Eq, PartialEq, Hash)]
+    pub struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    impl Point {
+        pub fn new(x: i32, y: i32) -> Point {
+            Point { x, y }
+        }
+    }
+
+    impl Add for Point {
+        type Output = Point;
+
+        fn add(self, other: Point) -> Point {
+            Point::new(self.x + other.x, self.y + other.y)
+        }
+    }
+
+    impl Sub for Point {
+        type Output = Point;
+
+        fn sub(self, other: Point) -> Point {
+            Point::new(self.x - other.x, self.y - other.y)
+        }
+    }
+
+    impl fmt::Debug for Point {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "Point(x={}, y={})", self.x, self.y)
+        }
+    }
+}
