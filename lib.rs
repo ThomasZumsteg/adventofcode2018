@@ -19,8 +19,8 @@ pub mod point {
 
     #[derive(Clone, Copy, Eq, PartialEq, Hash)]
     pub struct Point {
-        x: i32,
-        y: i32,
+        pub x: i32,
+        pub y: i32,
     }
 
     impl Point {
