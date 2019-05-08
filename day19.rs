@@ -34,6 +34,16 @@ mod OpCode {
         };
     );
 
+    macro_rules! opcode {
+        ($name:ident, $func:expr) => (
+            fn $name(reg: Reg, val: Reg) -> Reg {
+                let mut new_val = val.clone();
+                new_val[reg[3] as usize] = $func(val, reg);
+                new_val
+            }
+        )
+    }
+
     pub fn new() -> HashMap<String, ()> {
         map! {
             "addr": opcode!(|c, r| r[c[0]] + r[c[1]]),
