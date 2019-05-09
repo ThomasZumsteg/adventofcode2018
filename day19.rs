@@ -2,7 +2,7 @@ use common::get_input;
 
 struct Instruction {
     name: String,
-    reg: [u8; 3],
+    reg: [usize; 3],
 }
 
 impl Instruction {
@@ -11,57 +11,56 @@ impl Instruction {
         Instruction {
             name: fields[0].to_string(),
             reg: [
-                fields[1].parse::<u8>().unwrap(),
-                fields[2].parse::<u8>().unwrap(),
-                fields[3].parse::<u8>().unwrap(),
+                fields[1].parse::<usize>().unwrap(),
+                fields[2].parse::<usize>().unwrap(),
+                fields[3].parse::<usize>().unwrap(),
             ],
         }
     }
 }
 
-mod OpCode {
+mod op_code {
     use std::collections::HashMap;
 
-    macro_rules! map(
-        { $($key:tt : $value:expr),+ } => {
+    type Code = [usize; 3];
+    type Val = [usize; 6];
+    type Op = Fn(Code, Val) -> Val;
+
+    macro_rules! opcode_map(
+        { $($key:ident : $value:expr),+ } => {
             {
-                let mut m = HashMap::new();
+                let mut m: HashMap<String, &Op> = HashMap::new();
                 $(
-                    m.insert(key, value);
+                    fn $key(code: Code, reg: Val) -> Val {
+                        let mut new_val = reg.clone();
+                        new_val[code[2]] = $value(code, reg);
+                        new_val
+                    }
+                    m.insert(stringify!($key).to_string(), &$key);
                 )+
                 m
             }
         };
     );
 
-    macro_rules! opcode {
-        ($name:ident, $func:expr) => (
-            fn $name(reg: Reg, val: Reg) -> Reg {
-                let mut new_val = val.clone();
-                new_val[reg[3] as usize] = $func(val, reg);
-                new_val
-            }
-        )
-    }
-
-    pub fn new() -> HashMap<String, ()> {
-        map! {
-            "addr": opcode!(|c, r| r[c[0]] + r[c[1]]),
-            "addi": opcode!(|c, r| r[c[0]] + c[1]),
-            "mulr": opcode!(|c, r| r[c[0]] * r[c[1]]),
-            "muli": opcode!(|c, r| r[c[0]] * c[1]),
-            "banr": opcode!(|c, r| r[c[0]] & r[c[1]]),
-            "bani": opcode!(|c, r| r[c[0]] & c[1]),
-            "borr": opcode!(|c, r| r[c[0]] | r[c[1]]),
-            "bori": opcode!(|c, r| r[c[0]] | c[1]),
-            "setr": opcode!(|c, r| r[c[0]]),
-            "seti": opcode!(|c, _| r[0]),
-            "gtir": opcode!(|c, r| if c[0] > r[c[1]] { 1 } else { 0 }),
-            "gtri": opcode!(|c, r| if r[c[0]] > c[1] { 1 } else { 0 }),
-            "gtrr": opcode!(|c, r| if r[c[0]] > r[c[1]] { 1 } else { 0 }),
-            "eqir": opcode!(|c, r| if c[0] == r[c[1]] { 1 } else { 0 }),
-            "eqri": opcode!(|c, r| if r[c[0]] == c[1] { 1 } else { 0 }),
-            "eqrr": opcode!(|c, r| if r[c[0]] == r[c[1]] { 1 } else { 0 }),
+    pub fn new() -> HashMap<String, &'static Op> {
+        opcode_map! {
+            addr: |c: Code, r: Val| r[c[0]] + r[c[1]],
+            addi: |c: Code, r: Val| r[c[0]] + c[1],
+            mulr: |c: Code, r: Val| r[c[0]] * r[c[1]],
+            muli: |c: Code, r: Val| r[c[0]] * c[1],
+            banr: |c: Code, r: Val| r[c[0]] & r[c[1]],
+            bani: |c: Code, r: Val| r[c[0]] & c[1],
+            borr: |c: Code, r: Val| r[c[0]] | r[c[1]],
+            bori: |c: Code, r: Val| r[c[0]] | c[1],
+            setr: |c: Code, r: Val| r[c[0]],
+            seti: |c: Code, _: Val| c[0],
+            gtir: |c: Code, r: Val| if c[0] > r[c[1]] { 1 } else { 0 },
+            gtri: |c: Code, r: Val| if r[c[0]] > c[1] { 1 } else { 0 },
+            gtrr: |c: Code, r: Val| if r[c[0]] > r[c[1]] { 1 } else { 0 },
+            eqir: |c: Code, r: Val| if c[0] == r[c[1]] { 1 } else { 0 },
+            eqri: |c: Code, r: Val| if r[c[0]] == c[1] { 1 } else { 0 },
+            eqrr: |c: Code, r: Val| if r[c[0]] == r[c[1]] { 1 } else { 0 }
         }
     }
 }
@@ -72,25 +71,40 @@ struct Input {
 }
 
 
-fn part1(code: &Input) -> i32 {
-    let mut values = [0; 6];
-    let opcodes = OpCode::new();
-    while values[code.ip] < code.program.len() {
-        let reg = code.program[values[code.ip]];
-        values = 
-        
+fn part1(code: &Input) -> usize {
+    let mut registers = [0; 6];
+    let opcodes = op_code::new();
+    let ip = code.ip;
+    loop {
+        if let Some(instr) = code.program.get(registers[ip]) {
+            registers = opcodes[&instr.name](instr.reg, registers);
+            registers[ip] += 1;
+        } else {
+            return registers[0]
+        }
     }
-    unimplemented!()
 }
 
-fn part2(code: &Input) -> i32 {
+fn part2(code: &Input) -> usize {
+    let mut registers = [0; 6];
+    registers[0] = 1;
+    let opcodes = op_code::new();
+    let ip = code.ip;
+    while registers[ip] != 1 {
+        if let Some(instr) = code.program.get(registers[ip]) {
+            registers = opcodes[&instr.name](instr.reg, registers);
+            registers[ip] += 1;
+        } else {
+            return registers[0]
+        }
+    }
     unimplemented!()
 }
 
 fn parse(text: String) -> Input {
     let mut first: Option<usize> = None;
     let mut program: Vec<Instruction> = vec![];
-    for (n, line) in text.split('\n').enumerate() {
+    for (n, line) in text.trim().split('\n').enumerate() {
         if n == 0 {
             first = Some(line.split(' ').skip(1).next().unwrap()
                  .parse::<usize>().unwrap());
@@ -105,7 +119,7 @@ fn parse(text: String) -> Input {
 }
 
 fn main() {
-    let input = parse(get_input(29, 2019));
+    let input = parse(get_input(19, 2018));
     println!("Part 1: {}", part1(&input));
-    println!("Part 2: {}", part1(&input));
+    println!("Part 2: {}", part2(&input));
 }
