@@ -70,12 +70,22 @@ struct Input {
     program: Vec<Instruction>
 }
 
+fn factors(num: usize) -> Vec<usize> {
+    let mut result = vec![]; 
+    for n in 1..((num as f64).sqrt() as usize + 1) {
+        if num % n == 0 {
+            result.push(n);
+            result.push(num / n);
+        }
+    }
+    result
+}
 
 fn part1(code: &Input) -> usize {
     let mut registers = [0; 6];
     let opcodes = op_code::new();
     let ip = code.ip;
-    loop {
+    while registers[ip] != 1 {
         if let Some(instr) = code.program.get(registers[ip]) {
             registers = opcodes[&instr.name](instr.reg, registers);
             registers[ip] += 1;
@@ -83,6 +93,7 @@ fn part1(code: &Input) -> usize {
             return registers[0]
         }
     }
+    factors(registers[1]).iter().sum()
 }
 
 fn part2(code: &Input) -> usize {
@@ -98,7 +109,7 @@ fn part2(code: &Input) -> usize {
             return registers[0]
         }
     }
-    unimplemented!()
+    factors(registers[1]).iter().sum()
 }
 
 fn parse(text: String) -> Input {
