@@ -4,7 +4,7 @@ import logging
 import os
 import requests
 
-SESSION_KEY = "AOC_SESSION"
+SESSION_FILE = '.token'
 AOC_URL = "http://adventofcode.com"
 LOG = logging.getLogger(__name__)
 
@@ -18,9 +18,9 @@ def get_input(day, year):
         LOG.warning("Attempting to download file from AOC")
 
     url = f"{AOC_URL}/{year}/day/{day}/input"
-    if SESSION_KEY not in os.environ:
-        pass
-    response = requests.get(url, cookies=dict(session=os.environ.get(SESSION_KEY)))
+    with open(SESSION_FILE) as fh:
+        session = fh.read().strip()
+    response = requests.get(url, cookies=dict(session=session))
     if not response.ok:
         raise RuntimeError(f"Could not get {url}: {response.status_code}: {response.reason}")
     with open(file_name, 'w') as file_handle:

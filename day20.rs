@@ -1,12 +1,12 @@
 use std::collections::{HashSet, HashMap, VecDeque};
 use std::iter::FromIterator;
 
-use common::{get_input, map};
+use common::get_input;
 use common::point::Point;
 
 type Input = HashMap<Point, HashSet<Point>>;
 
-fn map_distances(map: Input) -> HashMap<Point, usize> {
+fn map_distances(map: &Input) -> HashMap<Point, usize> {
     let mut queue = VecDeque::from_iter(vec![(Point::new(0, 0), 0)]);
     let mut door_counts: HashMap<Point, usize> = HashMap::new();
     while let Some((position, doors)) = queue.pop_front() {
@@ -18,15 +18,15 @@ fn map_distances(map: Input) -> HashMap<Point, usize> {
             queue.push_front((next_position.clone(), doors + 1));
         }
     }
-    unimplemented!()
+    door_counts
 }
 
 fn part1(input: &Input) -> usize {
-    unimplemented!()
+    map_distances(input).values().max().unwrap().clone()
 }
 
 fn part2(input: &Input) -> usize {
-    unimplemented!()
+    map_distances(input).values().filter(|&&v| v >= 1000).count()
 }
 
 fn parse(text: String) -> Input {
@@ -47,7 +47,7 @@ fn parse(text: String) -> Input {
                     'S' => Point::new(0, -1),
                     'E' => Point::new(1, 0),
                     'W' => Point::new(-1, 0),
-                    _ => panic!("What is this?"),
+                    c => panic!("What is this? {}", c),
                 };
                 door_map.entry(next_location)
                     .or_insert(HashSet::new())
@@ -64,6 +64,7 @@ fn parse(text: String) -> Input {
 }
 
 fn main() {
+    assert!(part1(&parse("^WNE$".to_string())) == 3);
     let input = parse(get_input(20, 2018));
     println!("Part 1: {}", part1(&input));
     println!("Part 2: {}", part2(&input));
