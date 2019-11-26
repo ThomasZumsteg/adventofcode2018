@@ -27,6 +27,18 @@ pub mod point {
         pub fn new(x: i32, y: i32) -> Point {
             Point { x, y }
         }
+
+        pub fn from_str(text: &str) -> Point {
+            let values = text.split(',').collect::<Vec<&str>>();
+            Point::new(
+                values[0].parse::<i32>().unwrap(),
+                values[1].parse::<i32>().unwrap(),
+            )
+        }
+
+        pub fn distance(self, to: Point) -> usize {
+            ((self.x - to.x).abs() + (self.y - to.y).abs()) as usize
+        }
     }
 
     impl Add for Point {
@@ -49,6 +61,15 @@ pub mod point {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "Point(x={}, y={})", self.x, self.y)
         }
+    }
+
+    fn directions() -> [Point; 4] { 
+        [
+            Point::new(0, 1),
+            Point::new(0, -1),
+            Point::new(1, 0),
+            Point::new(-1, 0),
+        ]
     }
 }
 
