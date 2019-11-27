@@ -1,7 +1,8 @@
-use std::collections::{HashSet, HashMap, VecDeque};
+use std::collections::{HashSet, HashMap, BinaryHeap};
+use std::cmp::Ordering;
 
 use common::get_input;
-use common::point::Point;
+use common::point::{self, Point};
 
 struct Input {
     depth: usize,
@@ -52,45 +53,86 @@ fn part1(input: &Input) -> usize {
     total
 }
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 enum Gear {
     NONE = 0,
     TORCH = 1,
     CLIMB = 2,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct State {
+    distance: usize,
+    time: usize,
+    position: Point,
+    gear: Gear,
+}
+
+impl Ord for State {
+    fn cmp(&self, other: &State) -> Ordering {
+        other.distance.cmp(&self.distance)
+    }
+}
+
+impl PartialOrd for State {
+    fn partial_cmp(&self, other: &State) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
 impl Gear {
     fn get_compliment(self, terrain: usize) -> Gear {
-        (3 - terrain - self as usize)
+        match 3 - terrain - self as usize {
+            0 => Gear::NONE,
+            1 => Gear::TORCH,
+            2 => Gear::CLIMB,
+            n => panic!("Not a gear integer {}", n),
+        }
     }
 }
 
 fn part2(input: &Input) -> usize {
     let mut mapping = GeologicalMap::new(input.depth, input.target);
     let mut seen: HashSet<(Point, Gear)> = HashSet::new();
-    let mut queue = VecDeque::new::<>();
-    queue.push_back((
-        Point::new(0, 0).distance(input.target),
-        0,
-        Point::new(0, 0),
-        Gear::TORCH)
-    );
+    let mut queue = BinaryHeap::new();
+    queue.push(State {
+        distance: Point::new(0, 0).distance(input.target),
+        time: 0,
+        position: Point::new(0, 0),
+        gear: Gear::TORCH
+    });
 
-    while !queue.is_empty() {
-        let (_, time, position, gear) = queue.pop_front().unwrap();
-        if position == mapping.target && gear == Gear::TORCH {
-            return time
+    while let Some(state) = queue.pop() {
+        if state.position == mapping.target && state.gear == Gear::TORCH {
+            return state.time
         }
-        if position.x < 0 || position.y < 0 ||
-           mapping.index(position) % 3 == (gear as usize) ||
-           seen.contains(&(position, gear)) {
+        if state.position.x < 0 || state.position.y < 0 ||
+           mapping.index(state.position) % 3 == (state.gear as usize) ||
+           seen.contains(&(state.position, state.gear)) {
             continue
         }
-        seen.insert((position, gear));
-        let other_gear = gear.get_compliment(mapping.index(position) % 3);
+        seen.insert((state.position, state.gear));
+        let other_gear = state.gear.get_compliment(mapping.index(state.position) % 3);
+        queue.push(State {
+            distance: state.time + 7 + input.target.distance(state.position),
+            time: state.time + 7,
+            position: state.position,
+            gear: other_gear,
+        });
+
+        for directions in point::directions().iter() {
+            let new_position = state.position + *directions;
+            queue.push(
+                State {
+                    distance: state.time + 1 + input.target.distance(new_position),
+                    time: state.time + 1,
+                    position: new_position,
+                    gear: state.gear,
+                });
+        }
 
     }
-    unimplemented!()
+    panic!("Cannot be done")
 }
 
 fn parse(input: String) -> Input {
@@ -108,5 +150,3 @@ fn main() {
     println!("Part 1: {}", part1(&input));
     println!("Part 2: {}", part2(&input));
 }
-
-# Anki

@@ -63,7 +63,7 @@ pub mod point {
         }
     }
 
-    fn directions() -> [Point; 4] { 
+    pub fn directions() -> [Point; 4] { 
         [
             Point::new(0, 1),
             Point::new(0, -1),
