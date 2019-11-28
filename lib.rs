@@ -14,6 +14,7 @@ pub fn get_input(day: u8, year: u16) -> String {
 }
 
 pub mod point {
+    extern crate num;
     use std::ops::{Add, Sub};
     use std::fmt;
 
@@ -70,6 +71,44 @@ pub mod point {
             Point::new(1, 0),
             Point::new(-1, 0),
         ]
+    }
+
+    #[derive(Clone, Hash, Eq, PartialEq)]
+    pub struct Point3d<T> {
+        pub x: T,
+        pub y: T,
+        pub z: T,
+    }
+
+    pub trait Abs {
+        fn abs_diff(&self, diff: &Self) -> usize;
+    }
+
+    impl Abs for usize {
+        fn abs_diff(&self, diff: &Self) -> usize {
+            if self < diff { diff - self } else { self - diff }
+        }
+    }
+
+    impl Abs for i32 {
+        fn abs_diff(&self, diff: &Self) -> usize {
+            (self - diff).abs() as usize
+        }
+    }
+
+
+    impl<T: Sub + Abs> Point3d<T> {
+        pub fn new(x: T, y: T, z:T) -> Point3d<T> {
+            Point3d { x, y, z }
+        }
+        
+        pub fn distance(&self, to: &Point3d<T>) -> usize {
+            (
+                self.x.abs_diff(&to.x) +
+                self.y.abs_diff(&to.y) +
+                self.z.abs_diff(&to.z)
+            ) as usize                
+        }
     }
 }
 

@@ -54,9 +54,7 @@ def part2(bots):
         seen = set()
         best_count = None
         for position in positions:
-            for diff in itertools.chain(
-                    ((0, 0, 0),),
-                    itertools.product(*((0, radius, -radius), ) * 3)):
+            for diff in itertools.chain(itertools.product(*((0, radius, -radius), ) * 3)):
                 new_position = Point(*diff) + position
                 if new_position in seen:
                     continue
