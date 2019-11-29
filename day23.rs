@@ -42,8 +42,65 @@ fn bot_in_box_range(bots: &Vec<Bot>, position: &Point3d<i32>, radius: usize) -> 
         .count()
 }
 
+
+
+fn steps(radius: usize) -> Vec<Point3d<i32>> {
+    let values = [0i32, radius as i32, -(radius as i32)];
+    let mut indexs = [0; 3];
+    let mut result: Vec<Point3d<i32>> = Vec::new();
+    loop {
+        result.push(Point3d::new(
+            values[indexs[0]],
+            values[indexs[1]],
+            values[indexs[2]]
+        ));
+        for i in 0..3 {
+            indexs[i] += 1;
+            if indexs[i] < values.len() {
+                break
+            } else if i+1 < indexs.len() {
+                indexs[i] = 0;
+            } else {
+                return result
+            }
+        }
+    }
+}
+
 fn part2(input: &Input) -> usize {
-    unimplemented!()
+    let position = Point3d::new(0, 0, 0);
+    let mut max_radius = 1;
+    while bot_in_box_range(&&input, &position, max_radius) < input.len() {
+        max_radius *= 2;
+    }
+    let mut positions = HashSet::new();
+    positions.insert(position);
+    let mut radius = max_radius;
+    while radius > 0 {
+        radius /= 2;
+        let mut new_positions = HashSet::new();
+        let mut seen = HashSet::new();
+        let mut best_count = None;
+        for &position in positions.iter() {
+            for diff in steps(radius) {
+                let new_position = diff + position;
+                if seen.contains(&new_position) {
+                    continue;
+                }
+                seen.insert(new_position);
+                let new_count = bot_in_box_range(input, &new_position, radius);
+                if best_count.is_none() || best_count.unwrap() < new_count {
+                    new_positions.clear();
+                    best_count = Some(new_count);
+                }
+                if Some(new_count) == best_count {
+                    new_positions.insert(new_position);
+                }
+            }
+        }
+        positions = new_positions;
+    }
+    positions.iter().map(|p| p.distance(&Point3d::new(0,0,0))).min().unwrap()
 }
 
 fn parse(input: String) -> Input {

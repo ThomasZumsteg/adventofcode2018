@@ -14,7 +14,6 @@ pub fn get_input(day: u8, year: u16) -> String {
 }
 
 pub mod point {
-    extern crate num;
     use std::ops::{Add, Sub};
     use std::fmt;
 
@@ -73,7 +72,7 @@ pub mod point {
         ]
     }
 
-    #[derive(Clone, Hash, Eq, PartialEq)]
+    #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
     pub struct Point3d<T> {
         pub x: T,
         pub y: T,
@@ -96,9 +95,8 @@ pub mod point {
         }
     }
 
-
     impl<T: Sub + Abs> Point3d<T> {
-        pub fn new(x: T, y: T, z:T) -> Point3d<T> {
+        pub fn new(x: T, y: T, z: T) -> Point3d<T> {
             Point3d { x, y, z }
         }
         
@@ -110,6 +108,19 @@ pub mod point {
             ) as usize                
         }
     }
+
+    impl<T: Abs + Sub + Add<Output=T>> Add for Point3d<T> {
+        type Output = Self;
+
+        fn add(self, other: Self) -> Self {
+            Point3d::new(
+                self.x + other.x,
+                self.y + other.y, 
+                self.z + other.z
+            )
+        }
+    }
+
 }
 
 pub mod op_code {
